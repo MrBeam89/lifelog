@@ -20,14 +20,31 @@ import sqlite3
 import config
 
 class DbHandler:
-    def __init__(self):
-        self.conn = None
+    def __init__(self, db_filepath:str):
+        self.conn = sqlite3.connect(db_filepath)
+        self.cursor = self.conn.cursor()
 
-    def connect(self):
-        self.conn = sqlite3.connect(config.DB_FILEPATH)
-        self.conn.row_factory = sqlite3.Row
+        # If the table doesn't exist, create it
+        self.cursor.execute('''
+        CREATE TABLE IF NOT EXISTS entries (
+	db_id INTEGER PRIMARY KEY AUTOINCREMENT,
+	entry_date DATE UNIQUE,
+	entry_title TEXT,
+	entry_tags TEXT,
+	entry_mood INTEGER,
+    entry_content TEXT,
+	entry_texttagtable TEXT,
+	entry_image BLOB
+);
+        ''')
 
     def close(self):
+        self.conn.commit()
         if self.conn:
             self.conn.close()
             self.conn = None
+
+    def update_entry(self, entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_texttagtable, entry_image):
+        self.cursor.execute('''
+        INSERT OR REPLACE INTO entries (entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_texttagtable, entry_image) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_texttagtable, entry_image))

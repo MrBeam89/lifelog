@@ -84,21 +84,6 @@ Author: MrBeam89_
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="save_file_button">
-                <property name="visible">True</property>
-                <property name="can-focus">False</property>
-                <property name="tooltip-text" translatable="yes">Save (Ctrl+S)</property>
-                <property name="label" translatable="yes">Save</property>
-                <property name="use-underline">True</property>
-                <property name="icon-name">document-save</property>
-                <signal name="clicked" handler="on_save_file_button_clicked" swapped="no"/>
-              </object>
-              <packing>
-                <property name="expand">False</property>
-                <property name="homogeneous">True</property>
-              </packing>
-            </child>
-            <child>
               <object class="GtkSeparatorToolItem">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>

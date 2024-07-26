@@ -19,6 +19,7 @@
 import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
+from sqlite3 import Binary
 
 import config
 import db_handler
@@ -27,6 +28,7 @@ class LifelogApp:
     # Initialize the application
     def __init__(self):
         self.selected_date = None
+        self.formated_date = None
 
         # Initialize the Gtk builder and load the glade file
         self.builder = Gtk.Builder()
@@ -39,7 +41,6 @@ class LifelogApp:
         # Load the main window widgets
         self.new_file_button = self.builder.get_object("new_file_button")
         self.open_file_button = self.builder.get_object("open_file_button")
-        self.save_file_button = self.builder.get_object("save_file_button")
         self.settings_button = self.builder.get_object("settings_button")
 
         # Load the main window widgets
@@ -53,6 +54,7 @@ class LifelogApp:
         self.title_entry = self.builder.get_object("title_entry")
         self.tags_entry = self.builder.get_object("tags_entry")
         self.mood_scale = self.builder.get_object("mood_scale")
+        self.mood_adjustment = self.builder.get_object("mood_adjustment")
 
         # Load the image tab of settings notebook
         self.image = self.builder.get_object("image")
@@ -69,12 +71,11 @@ class LifelogApp:
             # Toolbar buttons
             "on_new_file_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
             "on_open_file_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
-            "on_save_file_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
             "on_settings_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
             
             # Other main widgets
             "on_calendar_day_selected": self.on_calendar_day_selected,
-            "on_apply_entry_changes_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
+            "on_apply_entry_changes_button_clicked": self.on_apply_entry_changes_button_clicked,
 
             # Format style buttons
             "on_bold_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
@@ -107,9 +108,11 @@ class LifelogApp:
 
         # Get current date
         self.selected_date = self.calendar.get_date()
-        statusbar_date_message = f"Welcome! The current date is : {self.selected_date[0]}-{self.selected_date[1]}-{self.selected_date[2]}"
-        self.change_statusbar_message(self.info_statusbar_context_id, statusbar_date_message)
+        self.formated_date = f"{self.selected_date[0]}-{self.selected_date[1]}-{self.selected_date[2]}"
 
+        statusbar_date_message = f"Welcome! The current date is : {self.formated_date}"
+        self.change_statusbar_message(self.info_statusbar_context_id, statusbar_date_message)
+    
         # By default, image isn't loaded
         self.image.set_visible(False)
         self.remove_image_button.set_visible(False)
@@ -121,6 +124,7 @@ class LifelogApp:
     def on_calendar_day_selected(self, widget):
         # Get the selected date
         self.selected_date = self.calendar.get_date()
+        self.formated_date = f"{self.selected_date[0]}-{self.selected_date[1]}-{self.selected_date[2]}"
 
         # Show the selected date in the status bar
         statusbar_date_message = f"Selected date is : {self.selected_date[0]}-{self.selected_date[1]}-{self.selected_date[2]}"
@@ -130,6 +134,23 @@ class LifelogApp:
     # Change the statusbar message
     def change_statusbar_message(self, context_id, message):
         self.statusbar.push(context_id, message)
+
+
+    # Save the changes made to an entry
+    def on_apply_entry_changes_button_clicked(self, widget):
+        entry_date = self.formated_date
+        entry_title = self.title_entry.get_text()
+        entry_tags = self.tags_entry.get_text()
+        entry_mood = int(self.mood_adjustment.get_value())
+        entry_content = self.entry_textbuffer.get_text(self.entry_textbuffer.get_start_iter(), self.entry_textbuffer.get_end_iter(), False)
+        entry_texttagtable = "" # Todo later
+        entry_image = Binary(b'').tobytes()
+ 
+        db = db_handler.DbHandler(config.DB_FILEPATH)
+        db.update_entry(entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_texttagtable, entry_image)
+        db.close()
+
+        self.change_statusbar_message(self.info_statusbar_context_id, "Entry saved successfully!")
 
 
 # Start the application
