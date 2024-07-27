@@ -41,11 +41,6 @@ class LifelogApp:
         self.main_win.connect("destroy", Gtk.main_quit)
 
         # Load the main window widgets
-        self.new_file_button = self.builder.get_object("new_file_button")
-        self.open_file_button = self.builder.get_object("open_file_button")
-        self.settings_button = self.builder.get_object("settings_button")
-
-        # Load the main window widgets
         self.calendar = self.builder.get_object("calendar")
         self.entry_textview = self.builder.get_object("entry_textview")
         self.entry_textbuffer = self.builder.get_object("entry_textbuffer")
@@ -77,6 +72,9 @@ class LifelogApp:
             
             # Other main widgets
             "on_calendar_day_selected": self.on_calendar_day_selected,
+            "on_calendar_month_changed": self.on_calendar_month_changed,
+            "on_calendar_next_year": self.on_calendar_month_changed, # Logic is the same as "on_calendar_month_changed"
+            "on_calendar_prev_year": self.on_calendar_month_changed, # Same
             "on_apply_entry_changes_button_clicked": self.on_apply_entry_changes_button_clicked,
 
             # Format style buttons
@@ -110,6 +108,7 @@ class LifelogApp:
 
         # Automatically selects today's entry and updates the date
         self.on_calendar_day_selected(self.calendar)
+        self.on_calendar_month_changed(self.calendar)
 
         statusbar_date_message = f"Welcome! The current date is : {self.user_formatted_date}"
         self.change_statusbar_message(self.info_statusbar_context_id, statusbar_date_message)
@@ -151,6 +150,28 @@ class LifelogApp:
             self.change_statusbar_message(self.info_statusbar_context_id, f"No existing entry found for date : {self.user_formatted_date}")
 
 
+    # Mark the days of the existing entries
+    def on_calendar_month_changed(self, widget):
+        # Unmark all days
+        for day in range(1, 32):
+            if self.calendar.get_day_is_marked(day):
+                self.calendar.unmark_day(day)
+
+        # Get the month and year from the calendar
+        month = self.calendar.get_property("month")+1
+        year = self.calendar.get_property("year")
+
+        # Get the existing entry dates for the selected month and year
+        db = db_handler.DbHandler(config.DB_FILEPATH)
+        existing_entry_dates = db.get_existing_entry_dates_for_month_year(month, year)
+        db.close()
+
+        # Mark the days of the existing entries
+        for existing_entry_date in existing_entry_dates:
+            day = int(existing_entry_date[0].split("-")[2])
+            self.calendar.mark_day(day)
+
+
     # Change the statusbar message
     def change_statusbar_message(self, context_id, message):
         self.statusbar.push(context_id, message)
@@ -178,6 +199,9 @@ class LifelogApp:
             self.main_win.set_title(f"Lifelog - {self.user_formatted_date} - {entry_title}")
         else:
             self.main_win.set_title(f"Lifelog - {self.user_formatted_date}")
+
+        # Mark the entry day in the calendar
+        self.on_calendar_month_changed(self.calendar)
 
         # Change the statusbar message
         self.change_statusbar_message(self.info_statusbar_context_id, "Entry saved successfully!")

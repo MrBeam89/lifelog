@@ -62,3 +62,10 @@ class DbHandler:
         SELECT * FROM entries WHERE entry_date = ?
         ''', (entry_date,))
         return self.cursor.fetchone()
+
+
+    # Get all existing entries for a given month and year
+    def get_existing_entry_dates_for_month_year(self, month, year):
+        query = "SELECT entry_date FROM entries WHERE entry_date LIKE ?"
+        self.cursor.execute(query, (f"{year}-{month}-%",))
+        return self.cursor.fetchall()

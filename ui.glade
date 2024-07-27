@@ -133,6 +133,9 @@ Author: MrBeam89_
                     <property name="can-focus">True</property>
                     <property name="margin-bottom">10</property>
                     <signal name="day-selected" handler="on_calendar_day_selected" swapped="no"/>
+                    <signal name="month-changed" handler="on_calendar_month_changed" swapped="no"/>
+                    <signal name="next-year" handler="on_calendar_next_year" swapped="no"/>
+                    <signal name="prev-year" handler="on_calendar_prev_year" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
