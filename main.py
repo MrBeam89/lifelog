@@ -20,6 +20,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk
 from sqlite3 import Binary
+from datetime import datetime
 
 import config
 import db_handler
@@ -28,7 +29,8 @@ class LifelogApp:
     # Initialize the application
     def __init__(self):
         self.selected_date = None
-        self.formated_date = None
+        self.db_formatted_date = None
+        self.user_formatted_date = None
 
         # Initialize the Gtk builder and load the glade file
         self.builder = Gtk.Builder()
@@ -106,13 +108,12 @@ class LifelogApp:
     def main(self):
         self.main_win.show_all()
 
-        # Get current date
-        self.selected_date = self.calendar.get_date()
-        self.formated_date = f"{self.selected_date[0]}-{self.selected_date[1]}-{self.selected_date[2]}"
+        # Automatically selects today's entry and updates the date
+        self.on_calendar_day_selected(self.calendar)
 
-        statusbar_date_message = f"Welcome! The current date is : {self.formated_date}"
+        statusbar_date_message = f"Welcome! The current date is : {self.user_formatted_date}"
         self.change_statusbar_message(self.info_statusbar_context_id, statusbar_date_message)
-    
+
         # By default, image isn't loaded
         self.image.set_visible(False)
         self.remove_image_button.set_visible(False)
@@ -122,13 +123,32 @@ class LifelogApp:
 
 
     def on_calendar_day_selected(self, widget):
-        # Get the selected date
+        # Get the selected date and format it to database and user readable format
         self.selected_date = self.calendar.get_date()
-        self.formated_date = f"{self.selected_date[0]}-{self.selected_date[1]}-{self.selected_date[2]}"
+        self.db_formatted_date = f"{self.selected_date[0]}-{self.selected_date[1]+1}-{self.selected_date[2]}"
+        date_obj = datetime.strptime(self.db_formatted_date, "%Y-%m-%d")
+        self.user_formatted_date = date_obj.strftime("%b %d, %Y")
 
-        # Show the selected date in the status bar
-        statusbar_date_message = f"Selected date is : {self.selected_date[0]}-{self.selected_date[1]}-{self.selected_date[2]}"
-        self.change_statusbar_message(self.info_statusbar_context_id, statusbar_date_message)
+        # Get the entry with the corresponding date from the database
+        db = db_handler.DbHandler(config.DB_FILEPATH)
+        entry = db.get_entry_from_date(self.db_formatted_date)
+        db.close()
+
+        # Display the entry
+        self.title_entry.set_text(entry[2] if entry else "")
+        self.tags_entry.set_text(entry[3] if entry else "")
+        self.mood_adjustment.set_value(int(entry[4]) if entry else 50)
+        self.entry_textbuffer.set_text(entry[5] if entry else "")
+        #self.image.set_visible(bool(entry[6]))
+        #self.remove_image_button.set_visible(True if entry[6] else False)
+
+        # Change the window title and statusbar message
+        if entry:
+            self.main_win.set_title(f"Lifelog - {self.user_formatted_date} - {entry[2]}")
+            self.change_statusbar_message(self.info_statusbar_context_id, f"Entry found for date : {self.user_formatted_date}")
+        else: # If no entry found for selected date
+            self.main_win.set_title(f"Lifelog - {self.user_formatted_date}")
+            self.change_statusbar_message(self.info_statusbar_context_id, f"No existing entry found for date : {self.user_formatted_date}")
 
 
     # Change the statusbar message
@@ -138,7 +158,9 @@ class LifelogApp:
 
     # Save the changes made to an entry
     def on_apply_entry_changes_button_clicked(self, widget):
-        entry_date = self.formated_date
+        entry_date = self.db_formatted_date
+
+        # Get the entry data from the widgets
         entry_title = self.title_entry.get_text()
         entry_tags = self.tags_entry.get_text()
         entry_mood = int(self.mood_adjustment.get_value())
@@ -146,10 +168,18 @@ class LifelogApp:
         entry_texttagtable = "" # Todo later
         entry_image = Binary(b'').tobytes()
  
+        # Update or add the entry in the database
         db = db_handler.DbHandler(config.DB_FILEPATH)
         db.update_entry(entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_texttagtable, entry_image)
         db.close()
 
+        # Update the title of the main window with the date and entry title if there is one
+        if entry_title:
+            self.main_win.set_title(f"Lifelog - {self.user_formatted_date} - {entry_title}")
+        else:
+            self.main_win.set_title(f"Lifelog - {self.user_formatted_date}")
+
+        # Change the statusbar message
         self.change_statusbar_message(self.info_statusbar_context_id, "Entry saved successfully!")
 
 

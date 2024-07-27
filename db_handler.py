@@ -20,7 +20,9 @@ import sqlite3
 import config
 
 class DbHandler:
+    # Initialize the database connection
     def __init__(self, db_filepath:str):
+        # Connect to the database and create the cursor
         self.conn = sqlite3.connect(db_filepath)
         self.cursor = self.conn.cursor()
 
@@ -38,13 +40,25 @@ class DbHandler:
 );
         ''')
 
+
+    # Commit and close the connection database
     def close(self):
         self.conn.commit()
         if self.conn:
             self.conn.close()
             self.conn = None
 
+
+    # Add or update an entry in the database
     def update_entry(self, entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_texttagtable, entry_image):
         self.cursor.execute('''
         INSERT OR REPLACE INTO entries (entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_texttagtable, entry_image) VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_texttagtable, entry_image))
+
+
+    # Get an entry from the database by its date
+    def get_entry_from_date(self, entry_date):
+        self.cursor.execute('''
+        SELECT * FROM entries WHERE entry_date = ?
+        ''', (entry_date,))
+        return self.cursor.fetchone()
