@@ -20,7 +20,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Pango
 from sqlite3 import Binary
-from datetime import datetime
+from datetime import date, datetime
 
 import config
 import db_handler
@@ -28,6 +28,8 @@ import db_handler
 class LifelogApp:
     # Initialize the application
     def __init__(self):
+        self.db_filepath = ""
+        self.current_date = str(date.today()).split("-")
         self.selected_date = None
         self.db_formatted_date = None
         self.user_formatted_date = None
@@ -78,8 +80,8 @@ class LifelogApp:
         # Set up the signal handlers
         self.handlers = {
             # Toolbar buttons
-            "on_new_file_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
-            "on_open_file_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
+            "on_new_file_button_clicked": self.on_new_file_button_clicked,
+            "on_open_file_button_clicked": self.on_open_file_button_clicked,
             "on_settings_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
             
             # Other main widgets
@@ -130,6 +132,89 @@ class LifelogApp:
         Gtk.main()
 
 
+    def on_new_file_button_clicked(self, widget):
+        # Temporary builder to fix the filechooser dialog being empty after closing and reopening
+        temp_builder = Gtk.Builder()
+        temp_builder.add_from_file(config.GLADE_FILEPATH)
+        temp_builder.connect_signals(self.handlers)
+
+        # Open the filechooser dialog
+        filechooser_win = temp_builder.get_object("filechooser_win")
+        ok_button_filechooser_win = temp_builder.get_object("ok_button_filechooser_win")
+
+        # Modify to a save filechooser dialog
+        filechooser_win.set_title("Save as")
+        filechooser_win.set_action(Gtk.FileChooserAction.SAVE)
+        ok_button_filechooser_win.set_label(Gtk.STOCK_SAVE_AS)
+
+        # Get the selected file or cancel the operation
+        filechooser_response = filechooser_win.run()
+        if filechooser_response == Gtk.ResponseType.OK:
+            # Reset the database
+            self.db_filepath = filechooser_win.get_filename()
+            db = db_handler.DbHandler(self.db_filepath)
+            db.reset_database()
+            db.close()
+
+            # Set the selected calendar date to today
+            self.current_date = str(date.today()).split("-")
+            self.calendar.select_day(int(self.current_date[2]))
+            self.calendar.select_month(int(self.current_date[1])-1, int(self.current_date[0]))
+
+            # Update the statusbar to the greet message
+            statusbar_date_message = f"Welcome! The current date is : {self.user_formatted_date}"
+            self.change_statusbar_message(self.info_statusbar_context_id, statusbar_date_message)
+
+            # By default, image isn't loaded
+            self.image.set_visible(False)
+            self.remove_image_button.set_visible(False)
+        elif filechooser_response == Gtk.ResponseType.CANCEL:
+            pass
+        
+        # Close the filechooser dialog
+        filechooser_win.destroy()
+
+
+    def on_open_file_button_clicked(self, widget):
+        # Temporary builder to fix the filechooser dialog being empty after closing and reopening
+        temp_builder = Gtk.Builder()
+        temp_builder.add_from_file(config.GLADE_FILEPATH)
+        temp_builder.connect_signals(self.handlers)
+
+        # Open the filechooser dialog
+        filechooser_win = temp_builder.get_object("filechooser_win")
+        ok_button_filechooser_win = temp_builder.get_object("ok_button_filechooser_win")
+
+        # Modify to an open filechooser dialog
+        ok_button_filechooser_win.set_label(Gtk.STOCK_OPEN)
+        filechooser_win.set_title("Open File")
+        filechooser_win.set_action(Gtk.FileChooserAction.OPEN)
+
+        # Get the selected file or cancel the operation
+        filechooser_response = filechooser_win.run()
+        if filechooser_response == Gtk.ResponseType.OK:
+            # Get the database filepath
+            self.db_filepath = filechooser_win.get_filename()
+            
+            # Set the selected calendar date to today
+            self.current_date = str(date.today()).split("-")
+            self.calendar.select_day(int(self.current_date[2]))
+            self.calendar.select_month(int(self.current_date[1])-1, int(self.current_date[0]))
+
+            # Update the statusbar to the greet message
+            statusbar_date_message = f"Welcome! The current date is : {self.user_formatted_date}"
+            self.change_statusbar_message(self.info_statusbar_context_id, statusbar_date_message)
+
+            # By default, image isn't loaded
+            self.image.set_visible(False)
+            self.remove_image_button.set_visible(False)
+        elif filechooser_response == Gtk.ResponseType.CANCEL:
+            pass
+        
+        # Close the filechooser dialog
+        filechooser_win.destroy()
+        
+
     def on_calendar_day_selected(self, widget):
         # Get the selected date and format it to database and user readable format
         self.selected_date = self.calendar.get_date()
@@ -138,7 +223,7 @@ class LifelogApp:
         self.user_formatted_date = date_obj.strftime("%b %d, %Y")
 
         # Get the entry with the corresponding date from the database
-        db = db_handler.DbHandler(config.DB_FILEPATH)
+        db = db_handler.DbHandler(self.db_filepath)
         entry = db.get_entry_from_date(self.db_formatted_date)
         db.close()
 
@@ -177,7 +262,7 @@ class LifelogApp:
         year = self.calendar.get_property("year")
 
         # Get the existing entry dates for the selected month and year
-        db = db_handler.DbHandler(config.DB_FILEPATH)
+        db = db_handler.DbHandler(self.db_filepath)
         existing_entry_dates = db.get_existing_entry_dates_for_month_year(month, year)
         db.close()
 
@@ -208,7 +293,7 @@ class LifelogApp:
         entry_image = Binary(b'').tobytes()
  
         # Update or add the entry in the database
-        db = db_handler.DbHandler(config.DB_FILEPATH)
+        db = db_handler.DbHandler(self.db_filepath)
         db.update_entry(entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_image)
         db.close()
 

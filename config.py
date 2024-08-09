@@ -21,6 +21,3 @@ import yaml
 APP_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 GLADE_FILENAME = "ui.glade"
 GLADE_FILEPATH = os.path.join(APP_DIRECTORY, GLADE_FILENAME)
-
-DB_FILENAME = "lifelog.db"
-DB_FILEPATH = os.path.join(APP_DIRECTORY, DB_FILENAME)

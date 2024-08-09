@@ -48,6 +48,24 @@ class DbHandler:
             self.conn = None
 
 
+    # Reset the database if new file is overwrittzn
+    def reset_database(self):
+        self.cursor.execute('''
+        DROP TABLE IF EXISTS entries
+        ''')
+        self.cursor.execute('''
+        CREATE TABLE IF NOT EXISTS entries (
+        db_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entry_date DATE UNIQUE,
+        entry_title TEXT,
+        entry_tags TEXT,
+        entry_mood INTEGER,
+        entry_content BLOB,
+        entry_image BLOB
+        );
+        ''')
+
+
     # Add or update an entry in the database
     def update_entry(self, entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_image):
         self.cursor.execute('''
