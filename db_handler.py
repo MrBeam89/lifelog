@@ -34,8 +34,7 @@ class DbHandler:
 	entry_title TEXT,
 	entry_tags TEXT,
 	entry_mood INTEGER,
-    entry_content TEXT,
-	entry_texttagtable TEXT,
+    entry_content BLOB,
 	entry_image BLOB
 );
         ''')
@@ -50,10 +49,10 @@ class DbHandler:
 
 
     # Add or update an entry in the database
-    def update_entry(self, entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_texttagtable, entry_image):
+    def update_entry(self, entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_image):
         self.cursor.execute('''
-        INSERT OR REPLACE INTO entries (entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_texttagtable, entry_image) VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_texttagtable, entry_image))
+        INSERT OR REPLACE INTO entries (entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_image) VALUES (?, ?, ?, ?, ?, ?)
+        ''', (entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_image))
 
 
     # Get an entry from the database by its date
