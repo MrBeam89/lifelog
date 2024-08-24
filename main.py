@@ -29,10 +29,27 @@ class LifelogApp:
     # Initialize the application
     def __init__(self):
         self.db_filepath = ""
+        self.is_file_opened = False
+
+        # Date related variables for the calendar, the database and the user
         self.current_date = str(date.today()).split("-")
         self.selected_date = None
+        self.selected_date_original = None
         self.db_formatted_date = None
         self.user_formatted_date = None
+
+        # Used to check if there are unsaved changes
+        self.unsaved_entry_title = ""
+        self.unsaved_entry_tags = ""
+        self.unsaved_entry_mood = 50
+        self.unsaved_entry_image = Binary(b'').tobytes()
+
+        self.saved_entry_title = ""
+        self.saved_entry_tags = ""
+        self.saved_entry_mood = 50
+        self.saved_entry_image = Binary(b'').tobytes()
+
+        self.trigger_callback_func = True # Set to False to avoid recursion when necessary
 
         # Initialize the Gtk builder and load the glade file
         self.builder = Gtk.Builder()
@@ -40,7 +57,6 @@ class LifelogApp:
 
         # Load the main window
         self.main_win = self.builder.get_object("main_win")
-        self.main_win.connect("destroy", Gtk.main_quit)
 
         # Load the main window widgets
         self.calendar = self.builder.get_object("calendar")
@@ -79,6 +95,10 @@ class LifelogApp:
 
         # Set up the signal handlers
         self.handlers = {
+            # Main window signals
+            "on_main_win_destroy": Gtk.main_quit,
+            "on_main_win_delete_event": self.on_main_win_delete_event,
+
             # Toolbar buttons
             "on_new_file_button_clicked": self.on_new_file_button_clicked,
             "on_open_file_button_clicked": self.on_open_file_button_clicked,
@@ -118,6 +138,12 @@ class LifelogApp:
         self.main_win.show_all()
 
         # Automatically selects today's entry and updates the date
+        self.selected_date = self.calendar.get_date()
+        self.selected_date_original = self.selected_date
+        self.db_formatted_date = f"{self.selected_date[0]}-{self.selected_date[1]+1}-{self.selected_date[2]}"
+        date_obj = datetime.strptime(self.db_formatted_date, "%Y-%m-%d")
+        self.user_formatted_date = date_obj.strftime("%b %d, %Y")
+
         self.on_calendar_day_selected(self.calendar)
         self.on_calendar_month_changed(self.calendar)
 
@@ -132,7 +158,63 @@ class LifelogApp:
         Gtk.main()
 
 
+    def check_for_unsaved_changes(self):
+        self.unsaved_entry_title = self.title_entry.get_text()
+        self.unsaved_entry_tags = self.tags_entry.get_text()
+        self.unsaved_entry_mood = int(self.mood_adjustment.get_value())
+        self.unsaved_entry_image = Binary(b'').tobytes()
+
+        is_entry_title_modified = self.saved_entry_title != self.unsaved_entry_title
+        is_entry_tags_modified = self.saved_entry_tags != self.unsaved_entry_tags
+        is_entry_mood_modified = self.saved_entry_mood != self.unsaved_entry_mood
+        is_textbuffer_modified = self.entry_textbuffer.get_modified()
+        is_entry_image_modified = self.saved_entry_image != self.unsaved_entry_image
+
+        return is_entry_title_modified or is_entry_tags_modified or is_entry_mood_modified or is_textbuffer_modified or is_entry_image_modified
+
+
+    def open_unsaved_changes_dialog(self):
+        # Temporary builder to fix the filechooser dialog being empty after closing and reopening
+        temp_builder = Gtk.Builder()
+        temp_builder.add_from_file(config.GLADE_FILEPATH)
+        temp_builder.connect_signals(self.handlers)
+
+        unsaved_changes_dialog = temp_builder.get_object("unsaved_changes_dialog")
+        dialog_response = unsaved_changes_dialog.run()
+        if dialog_response == Gtk.ResponseType.NO:
+            unsaved_changes_dialog.destroy()
+            return False
+
+        # If the user wants to ignore the changes
+        elif dialog_response == Gtk.ResponseType.YES:
+            unsaved_changes_dialog.destroy()
+            return True
+
+
+    def on_main_win_delete_event(self, widget, event):
+        # Check for unsaved changes
+        if self.check_for_unsaved_changes():
+            unsaved_changes_dialog_response = self.open_unsaved_changes_dialog()
+        
+            # If the user wants to quit and ignore the unsaved changes
+            if unsaved_changes_dialog_response == True:
+                Gtk.main_quit()
+        
+            # If the user doesn't want to ignore the changes, don't quit
+            else:
+                return True
+
+        # If there are no unsaved changes
+        Gtk.main_quit()
+
+
     def on_new_file_button_clicked(self, widget):
+        # Check for unsaved changes
+        if self.check_for_unsaved_changes():
+            unsaved_changes_dialog_response = self.open_unsaved_changes_dialog()
+            if unsaved_changes_dialog_response == False:
+                return
+
         # Temporary builder to fix the filechooser dialog being empty after closing and reopening
         temp_builder = Gtk.Builder()
         temp_builder.add_from_file(config.GLADE_FILEPATH)
@@ -150,11 +232,13 @@ class LifelogApp:
         # Get the selected file or cancel the operation
         filechooser_response = filechooser_win.run()
         if filechooser_response == Gtk.ResponseType.OK:
-            # Reset the database
+            # Reset the database and enable saving entries
             self.db_filepath = filechooser_win.get_filename()
             db = db_handler.DbHandler(self.db_filepath)
             db.reset_database()
             db.close()
+            self.is_file_opened = True
+            self.entry_textbuffer.set_modified(False)
 
             # Set the selected calendar date to today
             self.current_date = str(date.today()).split("-")
@@ -176,6 +260,12 @@ class LifelogApp:
 
 
     def on_open_file_button_clicked(self, widget):
+        # Check for unsaved changes
+        if self.check_for_unsaved_changes():
+            unsaved_changes_dialog_response = self.open_unsaved_changes_dialog()
+            if unsaved_changes_dialog_response == False:
+                return
+            
         # Temporary builder to fix the filechooser dialog being empty after closing and reopening
         temp_builder = Gtk.Builder()
         temp_builder.add_from_file(config.GLADE_FILEPATH)
@@ -197,11 +287,13 @@ class LifelogApp:
             self.db_filepath = filechooser_win.get_filename()
             
             # Set the selected calendar date to today
+            self.entry_textbuffer.set_modified(False)
             self.current_date = str(date.today()).split("-")
             self.calendar.select_day(int(self.current_date[2]))
             self.calendar.select_month(int(self.current_date[1])-1, int(self.current_date[0]))
 
-            # Update the statusbar to the greet message
+            # Update the statusbar to the greet message and enable saving entries
+            self.is_file_opened = True
             statusbar_date_message = f"Welcome! The current date is : {self.user_formatted_date}"
             self.change_statusbar_message(self.info_statusbar_context_id, statusbar_date_message)
 
@@ -216,8 +308,38 @@ class LifelogApp:
         
 
     def on_calendar_day_selected(self, widget):
+        if self.trigger_callback_func == False:
+            return
+
+        # Check for unsaved changes
+        if self.check_for_unsaved_changes():
+            unsaved_changes_dialog_response = self.open_unsaved_changes_dialog()
+
+            if unsaved_changes_dialog_response == False:
+                # Change the date back without calling this function again (avoid infinite loop)
+                self.trigger_callback_func = False
+                y, m, d = self.selected_date
+                self.calendar.select_day(d)
+                self.calendar.select_month(m, y)
+                self.trigger_callback_func = True
+                
+                # Reapply the changes
+                self.title_entry.set_text(unsaved_entry_title)
+                self.tags_entry.set_text(unsaved_entry_tags)
+                self.mood_adjustment.set_value(unsaved_entry_mood)
+                
+                self.entry_textbuffer.set_text("")               # Clear the buffer
+                entry_end = self.entry_textbuffer.get_end_iter() # Get the position of the end of the buffer to insert back the content
+                self.entry_textbuffer.deserialize(self.entry_textbuffer, self.entry_textbuffer_tags, entry_end, unsaved_entry_content) # Reinsert the content
+
+                self.entry_textbuffer.set_modified(True)
+
+                return
+
+
         # Get the selected date and format it to database and user readable format
         self.selected_date = self.calendar.get_date()
+        self.selected_date_original = self.selected_date
         self.db_formatted_date = f"{self.selected_date[0]}-{self.selected_date[1]+1}-{self.selected_date[2]}"
         date_obj = datetime.strptime(self.db_formatted_date, "%Y-%m-%d")
         self.user_formatted_date = date_obj.strftime("%b %d, %Y")
@@ -227,22 +349,35 @@ class LifelogApp:
         entry = db.get_entry_from_date(self.db_formatted_date)
         db.close()
 
+        # If entry doesn't exist, use default values
+        if not entry:
+            entry = ["", "", "", "", 50, "", Binary(b'').tobytes()]
+
+        # Used to verify the presence of unsaved changes
+        self.saved_entry_title = entry[2]
+        self.saved_entry_tags = entry[3]
+        self.saved_entry_mood = entry[4]
+        self.saved_entry_content = entry[5]
+        self.saved_entry_image = entry[6]
+
         # Display the entry info (not entry content)
-        self.title_entry.set_text(entry[2] if entry else "")
-        self.tags_entry.set_text(entry[3] if entry else "")
-        self.mood_adjustment.set_value(int(entry[4]) if entry else 50)
+        self.title_entry.set_text(self.saved_entry_title)
+        self.tags_entry.set_text(self.saved_entry_tags)
+        self.mood_adjustment.set_value(int(self.saved_entry_mood))
         
         # Display the entry content
         self.entry_textbuffer.set_text("")               # Clear the buffer
         entry_end = self.entry_textbuffer.get_end_iter() # Get the position of the end of the buffer to insert the new content
         if entry:
-            self.entry_textbuffer.deserialize(self.entry_textbuffer, self.entry_textbuffer_tags, entry_end, entry[5]) # Insert the content
+            self.entry_textbuffer.deserialize(self.entry_textbuffer, self.entry_textbuffer_tags, entry_end, self.saved_entry_content) # Insert the content
+
+        self.entry_textbuffer.set_modified(False)
 
         #self.image.set_visible(bool(entry[6]))
-        #self.remove_image_button.set_visible(True if entry[6] else False)
+        #self.remove_image_button.set_visible(True if self.saved_entry_image else False)
 
         # Change the window title and statusbar message
-        if entry:
+        if entry[2]:
             self.main_win.set_title(f"Lifelog - {self.user_formatted_date} - {entry[2]}")
             self.change_statusbar_message(self.info_statusbar_context_id, f"Entry found for date : {self.user_formatted_date}")
         else: # If no entry found for selected date
@@ -279,6 +414,11 @@ class LifelogApp:
 
     # Save the changes made to an entry
     def on_apply_entry_changes_button_clicked(self, widget):
+        # Check if saving entries is possible
+        if self.is_file_opened == False:
+            self.change_statusbar_message(self.info_statusbar_context_id, "No file is opened!")
+            return
+
         entry_date = self.db_formatted_date
 
         # Get the entry data from the widgets (not entry content)
@@ -297,6 +437,8 @@ class LifelogApp:
         db.update_entry(entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_image)
         db.close()
 
+        self.entry_textbuffer.set_modified(False)
+
         # Update the title of the main window with the date and entry title if there is one
         if entry_title:
             self.main_win.set_title(f"Lifelog - {self.user_formatted_date} - {entry_title}")
@@ -306,7 +448,7 @@ class LifelogApp:
         # Mark the entry day in the calendar
         self.on_calendar_month_changed(self.calendar)
 
-        # Change the statusbar message
+        # Change the statusbar message and mark the buffer as not modified
         self.change_statusbar_message(self.info_statusbar_context_id, "Entry saved successfully!")
 
 
