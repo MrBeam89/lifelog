@@ -26,17 +26,25 @@ class DbHandler:
         self.conn = sqlite3.connect(db_filepath)
         self.cursor = self.conn.cursor()
 
-        # If the table doesn't exist, create it
+        # If the tables don't exist, create them
         self.cursor.execute('''
         CREATE TABLE IF NOT EXISTS entries (
-	db_id INTEGER PRIMARY KEY AUTOINCREMENT,
-	entry_date DATE UNIQUE,
-	entry_title TEXT,
-	entry_tags TEXT,
-	entry_mood INTEGER,
-    entry_content BLOB,
-	entry_image BLOB
-);
+	        db_id INTEGER PRIMARY KEY AUTOINCREMENT,
+	        entry_date DATE UNIQUE,
+	        entry_title TEXT,
+    	    entry_tags TEXT,
+            entry_mood INTEGER,
+            entry_content BLOB,
+	        entry_image BLOB
+        );
+        ''')
+        
+        self.cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            db_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            key TEXT UNIQUE,
+            value BLOB
+        )
         ''')
 
 
@@ -86,3 +94,18 @@ class DbHandler:
         query = "SELECT entry_date FROM entries WHERE entry_date LIKE ?"
         self.cursor.execute(query, (f"{year}-{month}-%",))
         return self.cursor.fetchall()
+
+
+    # Update a setting
+    def update_setting(self, key, value):
+        self.cursor.execute('''
+        INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)
+        ''', (key, value))
+
+    
+    # Get a specific setting
+    def get_setting(self, key):
+        self.cursor.execute('''
+        SELECT * FROM settings WHERE key = ?
+        ''', (key,))
+        return self.cursor.fetchall()[0][2]

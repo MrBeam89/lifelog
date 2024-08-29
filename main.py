@@ -21,15 +21,23 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Pango
 from sqlite3 import Binary
 from datetime import date, datetime
+from os import urandom
 
 import config
 import db_handler
+import crypto_utils
 
 class LifelogApp:
     # Initialize the application
     def __init__(self):
         self.db_filepath = ""
         self.is_file_opened = False
+
+        # Used for encryption
+        self.password = b""
+        self.aes_key = b"\x00" * 32
+        self.aes_cipher = crypto_utils.AESCipher(self.aes_key)
+        self.scrypt_hasher = crypto_utils.scryptHasher()
 
         # Date related variables for the calendar, the database and the user
         self.current_date = str(date.today()).split("-")
@@ -44,9 +52,11 @@ class LifelogApp:
         self.unsaved_entry_mood = 50
         self.unsaved_entry_image = Binary(b'').tobytes()
 
+        # Default entry details
         self.saved_entry_title = ""
         self.saved_entry_tags = ""
         self.saved_entry_mood = 50
+        self.saved_entry_content = b'GTKTEXTBUFFERCONTENTS-0001\x00\x00\x00G <text_view_markup>\n <tags>\n </tags>\n<text></text>\n</text_view_markup>\n'
         self.saved_entry_image = Binary(b'').tobytes()
 
         self.trigger_callback_func = True # Set to False to avoid recursion when necessary
@@ -93,11 +103,20 @@ class LifelogApp:
         self.error_statusbar_context_id = self.statusbar.get_context_id("error")
         self.info_statusbar_context_id = self.statusbar.get_context_id("info")
 
+        # Widgets for the password dialogs, loaded when necessary
+        self.password_set_entry = None
+        self.password_set_retype_entry = None
+        self.message_label_password_set_dialog = None
+
         # Set up the signal handlers
         self.handlers = {
             # Main window signals
             "on_main_win_destroy": Gtk.main_quit,
             "on_main_win_delete_event": self.on_main_win_delete_event,
+
+            # Password dialogs signals
+            "on_password_set_dialog_response": self.on_password_set_dialog_response,
+            "on_password_verify_dialog_response": self.on_password_verify_dialog_response,
 
             # Toolbar buttons
             "on_new_file_button_clicked": self.on_new_file_button_clicked,
@@ -159,18 +178,23 @@ class LifelogApp:
 
 
     def check_for_unsaved_changes(self):
+        # Get the unsaved entry changes
         self.unsaved_entry_title = self.title_entry.get_text()
         self.unsaved_entry_tags = self.tags_entry.get_text()
         self.unsaved_entry_mood = int(self.mood_adjustment.get_value())
+        entry_start, entry_end = self.entry_textbuffer.get_bounds()
+        self.unsaved_entry_content = self.entry_textbuffer.serialize(self.entry_textbuffer, self.entry_textbuffer_tags, entry_start, entry_end)
         self.unsaved_entry_image = Binary(b'').tobytes()
 
+        # Compare them to the saved entry details
         is_entry_title_modified = self.saved_entry_title != self.unsaved_entry_title
         is_entry_tags_modified = self.saved_entry_tags != self.unsaved_entry_tags
         is_entry_mood_modified = self.saved_entry_mood != self.unsaved_entry_mood
-        is_textbuffer_modified = self.entry_textbuffer.get_modified()
+        is_entry_content_modified = self.saved_entry_content != self.unsaved_entry_content
         is_entry_image_modified = self.saved_entry_image != self.unsaved_entry_image
 
-        return is_entry_title_modified or is_entry_tags_modified or is_entry_mood_modified or is_textbuffer_modified or is_entry_image_modified
+        # Return True if any change has been made
+        return is_entry_title_modified or is_entry_tags_modified or is_entry_mood_modified or is_entry_content_modified or is_entry_image_modified
 
 
     def open_unsaved_changes_dialog(self):
@@ -189,6 +213,61 @@ class LifelogApp:
         elif dialog_response == Gtk.ResponseType.YES:
             unsaved_changes_dialog.destroy()
             return True
+
+
+    def on_password_set_dialog_response(self, dialog, response):        
+        if response == Gtk.ResponseType.OK:
+            # Get the password from both Gtk.Entry(s)
+            password = self.password_set_entry.get_text()
+            retyped_password = self.password_set_retype_entry.get_text()
+            
+            # If the passwords are not the same, stop the dialog from closing
+            if password != retyped_password:
+                self.message_label_password_set_dialog.set_text("Passwords don't match!")
+                dialog.stop_emission_by_name("response")
+                return True
+
+            # If the password is too short, stop the dialog from closing
+            elif len(password) < 8:
+                self.message_label_password_set_dialog.set_text("Password must be at least 8 characters long!")
+                dialog.stop_emission_by_name("response")
+                return True
+
+            # If the passwords are the same and long enough, store the password, close the dialog and proceed
+            else:
+                self.password = password.encode('utf-8')
+                return False
+            
+
+    def on_password_verify_dialog_response(self, dialog, response):
+        if response == Gtk.ResponseType.OK:
+            self.password = self.password_verify_entry.get_text().encode('utf-8')
+
+            # Get the encryption details
+            db = db_handler.DbHandler(self.temp_db_filepath)
+            encryption_salt = db.get_setting("encryption_salt")
+            password_verification_salt = db.get_setting("password_verification_salt")
+            password_verification_hash = db.get_setting("password_verification_hash")
+            db.close()
+
+            # Hash the input password with the password verification salt
+            input_password_hash = self.scrypt_hasher.hash_password(self.password, password_verification_salt)
+
+            # If the hashes match (password is correct)
+            if input_password_hash == password_verification_hash:
+                # Generate the key and load it
+                self.aes_key = self.scrypt_hasher.hash_password(self.password, encryption_salt)
+                self.aes_cipher = crypto_utils.AESCipher(self.aes_key)
+
+                # Close the dialog and proceed
+                return False
+
+            # If the hashes don't match (password is incorrect)
+            else:
+                # Display a message and stop the dialog from closing
+                self.message_label_password_verify_dialog.set_text("Wrong password!")
+                dialog.stop_emission_by_name("response")
+                return True
 
 
     def on_main_win_delete_event(self, widget, event):
@@ -220,9 +299,13 @@ class LifelogApp:
         temp_builder.add_from_file(config.GLADE_FILEPATH)
         temp_builder.connect_signals(self.handlers)
 
-        # Open the filechooser dialog
+        # Load the filechooser dialog and button, and the password set dialog with its entries
         filechooser_win = temp_builder.get_object("filechooser_win")
         ok_button_filechooser_win = temp_builder.get_object("ok_button_filechooser_win")
+        password_set_dialog = temp_builder.get_object("password_set_dialog")
+        self.password_set_entry = temp_builder.get_object("password_set_entry")
+        self.password_set_retype_entry = temp_builder.get_object("password_set_retype_entry")
+        self.message_label_password_set_dialog = temp_builder.get_object("message_label_password_set_dialog")
 
         # Modify to a save filechooser dialog
         filechooser_win.set_title("Save as")
@@ -232,11 +315,40 @@ class LifelogApp:
         # Get the selected file or cancel the operation
         filechooser_response = filechooser_win.run()
         if filechooser_response == Gtk.ResponseType.OK:
+            self.temp_db_filepath = filechooser_win.get_filename()
+            filechooser_win.destroy()
+
+            # Run the dialog to get the password used for encryption
+            self.message_label_password_set_dialog.set_text("Waiting for password confirmation...")
+            password_set_response = password_set_dialog.run()
+
+            # Stop the process if the user cancels the password dialog, proceed otherwise
+            if password_set_response == Gtk.ResponseType.CANCEL:
+                password_set_dialog.destroy()
+                return
+
+            password_set_dialog.destroy()
+
             # Reset the database and enable saving entries
-            self.db_filepath = filechooser_win.get_filename()
+            self.db_filepath = self.temp_db_filepath
             db = db_handler.DbHandler(self.db_filepath)
             db.reset_database()
+
+            # Setup the encryption
+            encryption_salt = urandom(16)
+            password_verification_salt = urandom(16)
+            password_verification_hash = self.scrypt_hasher.hash_password(self.password, password_verification_salt)
+            self.aes_key = self.scrypt_hasher.hash_password(self.password, encryption_salt) # Use a scrypt hash as the encryption key for AES-256
+            self.aes_cipher = crypto_utils.AESCipher(self.aes_key) # Load the key
+
+            # Save the encryption settings to the database
+            db.update_setting("encryption_salt", encryption_salt)
+            db.update_setting("password_verification_salt", password_verification_salt)
+            db.update_setting("password_verification_hash", password_verification_hash)
+
+            # Close the database
             db.close()
+
             self.is_file_opened = True
             self.entry_textbuffer.set_modified(False)
 
@@ -271,9 +383,12 @@ class LifelogApp:
         temp_builder.add_from_file(config.GLADE_FILEPATH)
         temp_builder.connect_signals(self.handlers)
 
-        # Open the filechooser dialog
+        # Load the filechooser dialog and button, and the password verify dialog with its entry and label
         filechooser_win = temp_builder.get_object("filechooser_win")
         ok_button_filechooser_win = temp_builder.get_object("ok_button_filechooser_win")
+        password_verify_dialog = temp_builder.get_object("password_verify_dialog")
+        self.password_verify_entry = temp_builder.get_object("password_verify_entry")
+        self.message_label_password_verify_dialog = temp_builder.get_object("message_label_password_verify_dialog")
 
         # Modify to an open filechooser dialog
         ok_button_filechooser_win.set_label(Gtk.STOCK_OPEN)
@@ -283,9 +398,22 @@ class LifelogApp:
         # Get the selected file or cancel the operation
         filechooser_response = filechooser_win.run()
         if filechooser_response == Gtk.ResponseType.OK:
-            # Get the database filepath
-            self.db_filepath = filechooser_win.get_filename()
+            # Temporarily store the database file path and close the filechooser dialog
+            self.temp_db_filepath = filechooser_win.get_filename()
+            filechooser_win.destroy()
+
+            # Run the dialog to verify the password
+            password_verify_dialog_response = password_verify_dialog.run()
             
+            # Stop the process if the user cancels the password dialog, proceed otherwise
+            if password_verify_dialog_response == Gtk.ResponseType.CANCEL:
+                password_verify_dialog.destroy()
+                return
+            password_verify_dialog.destroy()
+
+            # Set the database filepath
+            self.db_filepath = self.temp_db_filepath
+
             # Set the selected calendar date to today
             self.entry_textbuffer.set_modified(False)
             self.current_date = str(date.today()).split("-")
@@ -324,13 +452,13 @@ class LifelogApp:
                 self.trigger_callback_func = True
                 
                 # Reapply the changes
-                self.title_entry.set_text(unsaved_entry_title)
-                self.tags_entry.set_text(unsaved_entry_tags)
-                self.mood_adjustment.set_value(unsaved_entry_mood)
+                self.title_entry.set_text(self.unsaved_entry_title)
+                self.tags_entry.set_text(self.unsaved_entry_tags)
+                self.mood_adjustment.set_value(self.unsaved_entry_mood)
                 
                 self.entry_textbuffer.set_text("")               # Clear the buffer
                 entry_end = self.entry_textbuffer.get_end_iter() # Get the position of the end of the buffer to insert back the content
-                self.entry_textbuffer.deserialize(self.entry_textbuffer, self.entry_textbuffer_tags, entry_end, unsaved_entry_content) # Reinsert the content
+                self.entry_textbuffer.deserialize(self.entry_textbuffer, self.entry_textbuffer_tags, entry_end, self.unsaved_entry_content) # Reinsert the content
 
                 self.entry_textbuffer.set_modified(True)
 
@@ -351,13 +479,20 @@ class LifelogApp:
 
         # If entry doesn't exist, use default values
         if not entry:
-            entry = ["", "", "", "", 50, "", Binary(b'').tobytes()]
+            entry = ["", "", "", "", "", "", Binary(b'').tobytes()]
 
         # Used to verify the presence of unsaved changes
-        self.saved_entry_title = entry[2]
-        self.saved_entry_tags = entry[3]
-        self.saved_entry_mood = entry[4]
-        self.saved_entry_content = entry[5]
+        encrypted_entry_title = entry[2]
+        encrypted_entry_tags = entry[3]
+        encrypted_entry_mood = entry[4]
+        encrypted_entry_content = entry[5]
+
+        # Decrypt the entry data (and use the default values for empty values)
+        self.saved_entry_title = self.aes_cipher.decrypt(encrypted_entry_title).decode("utf-8")
+        self.saved_entry_tags = self.aes_cipher.decrypt(encrypted_entry_tags).decode("utf-8")
+        self.saved_entry_mood = int(self.aes_cipher.decrypt(encrypted_entry_mood).decode("utf-8") or "50")
+        self.saved_entry_content = self.aes_cipher.decrypt(encrypted_entry_content) or b'GTKTEXTBUFFERCONTENTS-0001\x00\x00\x00G <text_view_markup>\n <tags>\n </tags>\n<text></text>\n</text_view_markup>\n'
+        
         self.saved_entry_image = entry[6]
 
         # Display the entry info (not entry content)
@@ -377,8 +512,8 @@ class LifelogApp:
         #self.remove_image_button.set_visible(True if self.saved_entry_image else False)
 
         # Change the window title and statusbar message
-        if entry[2]:
-            self.main_win.set_title(f"Lifelog - {self.user_formatted_date} - {entry[2]}")
+        if self.saved_entry_title:
+            self.main_win.set_title(f"Lifelog - {self.user_formatted_date} - {self.saved_entry_title}")
             self.change_statusbar_message(self.info_statusbar_context_id, f"Entry found for date : {self.user_formatted_date}")
         else: # If no entry found for selected date
             self.main_win.set_title(f"Lifelog - {self.user_formatted_date}")
@@ -419,12 +554,10 @@ class LifelogApp:
             self.change_statusbar_message(self.info_statusbar_context_id, "No file is opened!")
             return
 
-        entry_date = self.db_formatted_date
-
         # Get the entry data from the widgets (not entry content)
-        entry_title = self.title_entry.get_text()
-        entry_tags = self.tags_entry.get_text()
-        entry_mood = int(self.mood_adjustment.get_value())
+        encoded_entry_title = self.title_entry.get_text().encode("utf-8")
+        encoded_entry_tags = self.tags_entry.get_text().encode("utf-8")
+        encoded_entry_mood = str(int((self.mood_adjustment.get_value()))).encode("utf-8")
 
         # Serialize the textbuffer
         entry_start, entry_end = self.entry_textbuffer.get_bounds()
@@ -432,16 +565,27 @@ class LifelogApp:
 
         entry_image = Binary(b'').tobytes()
  
+        # Encrypt the entry data
+        encrypted_entry_title = self.aes_cipher.encrypt(encoded_entry_title)
+        encrypted_entry_tags = self.aes_cipher.encrypt(encoded_entry_tags)
+        encrypted_entry_mood = self.aes_cipher.encrypt(encoded_entry_mood)
+        encrypted_entry_content = self.aes_cipher.encrypt(entry_content)
+
         # Update or add the entry in the database
         db = db_handler.DbHandler(self.db_filepath)
-        db.update_entry(entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_image)
+        db.update_entry(self.db_formatted_date, encrypted_entry_title, encrypted_entry_tags, encrypted_entry_mood, encrypted_entry_content, entry_image)
         db.close()
 
-        self.entry_textbuffer.set_modified(False)
+        # Set the entry data as saved
+        self.saved_entry_title = encoded_entry_title.decode("utf-8")
+        self.saved_entry_tags = encoded_entry_tags.decode("utf-8")
+        self.saved_entry_mood = int(encoded_entry_mood.decode("utf-8"))
+        self.saved_entry_content = entry_content
+        self.saved_entry_image = entry_image
 
         # Update the title of the main window with the date and entry title if there is one
-        if entry_title:
-            self.main_win.set_title(f"Lifelog - {self.user_formatted_date} - {entry_title}")
+        if self.saved_entry_title:
+            self.main_win.set_title(f"Lifelog - {self.user_formatted_date} - {self.saved_entry_title}")
         else:
             self.main_win.set_title(f"Lifelog - {self.user_formatted_date}")
 
