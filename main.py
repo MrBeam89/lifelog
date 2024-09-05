@@ -56,7 +56,6 @@ class LifelogApp:
         self.saved_entry_title = ""
         self.saved_entry_tags = ""
         self.saved_entry_mood = 50
-        self.saved_entry_content = b'GTKTEXTBUFFERCONTENTS-0001\x00\x00\x00G <text_view_markup>\n <tags>\n </tags>\n<text></text>\n</text_view_markup>\n'
         self.saved_entry_image = Binary(b'').tobytes()
 
         self.trigger_callback_func = True # Set to False to avoid recursion when necessary
@@ -190,7 +189,7 @@ class LifelogApp:
         is_entry_title_modified = self.saved_entry_title != self.unsaved_entry_title
         is_entry_tags_modified = self.saved_entry_tags != self.unsaved_entry_tags
         is_entry_mood_modified = self.saved_entry_mood != self.unsaved_entry_mood
-        is_entry_content_modified = self.saved_entry_content != self.unsaved_entry_content
+        is_entry_content_modified = self.entry_textbuffer.get_modified()
         is_entry_image_modified = self.saved_entry_image != self.unsaved_entry_image
 
         # Return True if any change has been made
@@ -491,8 +490,7 @@ class LifelogApp:
         self.saved_entry_title = self.aes_cipher.decrypt(encrypted_entry_title).decode("utf-8")
         self.saved_entry_tags = self.aes_cipher.decrypt(encrypted_entry_tags).decode("utf-8")
         self.saved_entry_mood = int(self.aes_cipher.decrypt(encrypted_entry_mood).decode("utf-8") or "50")
-        self.saved_entry_content = self.aes_cipher.decrypt(encrypted_entry_content) or b'GTKTEXTBUFFERCONTENTS-0001\x00\x00\x00G <text_view_markup>\n <tags>\n </tags>\n<text></text>\n</text_view_markup>\n'
-        
+        saved_entry_content = self.aes_cipher.decrypt(encrypted_entry_content)
         self.saved_entry_image = entry[6]
 
         # Display the entry info (not entry content)
@@ -501,11 +499,10 @@ class LifelogApp:
         self.mood_adjustment.set_value(int(self.saved_entry_mood))
         
         # Display the entry content
-        self.entry_textbuffer.set_text("")               # Clear the buffer
-        entry_end = self.entry_textbuffer.get_end_iter() # Get the position of the end of the buffer to insert the new content
-        if entry:
-            self.entry_textbuffer.deserialize(self.entry_textbuffer, self.entry_textbuffer_tags, entry_end, self.saved_entry_content) # Insert the content
-
+        self.entry_textbuffer.set_text("") # Clear the buffer
+        if saved_entry_content: # If there is content
+            entry_end = self.entry_textbuffer.get_end_iter() # Get the position of the end of the buffer to insert the new content
+            self.entry_textbuffer.deserialize(self.entry_textbuffer, self.entry_textbuffer_tags, entry_end, saved_entry_content) # Insert the content
         self.entry_textbuffer.set_modified(False)
 
         #self.image.set_visible(bool(entry[6]))
@@ -580,7 +577,6 @@ class LifelogApp:
         self.saved_entry_title = encoded_entry_title.decode("utf-8")
         self.saved_entry_tags = encoded_entry_tags.decode("utf-8")
         self.saved_entry_mood = int(encoded_entry_mood.decode("utf-8"))
-        self.saved_entry_content = entry_content
         self.saved_entry_image = entry_image
 
         # Update the title of the main window with the date and entry title if there is one
@@ -597,47 +593,86 @@ class LifelogApp:
 
 
     def on_bold_button_clicked(self, widget):
-        selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()   # Get selection bounds
-        self.entry_textbuffer.apply_tag_by_name("bold", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+        try:
+            selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()   # Get selection bounds
+            self.entry_textbuffer.apply_tag_by_name("bold", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+            self.entry_textbuffer.set_modified(True)                                        # Mark the buffer as modified
+        # If no text is selected, do nothing
+        except ValueError:
+            pass
     
 
     def on_italic_button_clicked(self, widget):
-        selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()     # Get selection bounds
-        self.entry_textbuffer.apply_tag_by_name("italic", selection_start, selection_end) # Apply the tag to the selected part of the buffer
-    
+        try:
+            selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()     # Get selection bounds
+            self.entry_textbuffer.apply_tag_by_name("italic", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+            self.entry_textbuffer.set_modified(True)                                          # Mark the buffer as modified
+        # If no text is selected, do nothing
+        except ValueError:
+            pass
+
 
     def on_underline_button_clicked(self, widget):
-        selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()        # Get selection bounds
-        self.entry_textbuffer.apply_tag_by_name("underline", selection_start, selection_end) # Apply the tag to the selected part of the buffer
-
+        try:
+            selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()        # Get selection bounds
+            self.entry_textbuffer.apply_tag_by_name("underline", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+            self.entry_textbuffer.set_modified(True)                                             # Mark the buffer as modified
+        # If no text is selected, do nothing
+        except ValueError:
+            pass
     
     def on_strikethrough_button_clicked(self, widget):
-        selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()            # Get selection bounds
-        self.entry_textbuffer.apply_tag_by_name("strikethrough", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+        try:
+            selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()            # Get selection bounds
+            self.entry_textbuffer.apply_tag_by_name("strikethrough", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+            self.entry_textbuffer.set_modified(True)                                                 # Mark the buffer as modified
+        # If no text is selected, do nothing
+        except ValueError:
+            pass
 
 
     def on_justify_left_button_clicked(self, widget):
-        selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()           # Get selection bounds
-        self.reset_justification(selection_start, selection_end)                                # All alignments are mutually exclusive
-        self.entry_textbuffer.apply_tag_by_name("justify_left", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+        try:
+            selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()           # Get selection bounds
+            self.reset_justification(selection_start, selection_end)                                # All alignments are mutually exclusive
+            self.entry_textbuffer.apply_tag_by_name("justify_left", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+            self.entry_textbuffer.set_modified(True)                                                # Mark the buffer as modified
+        # If no text is selected, do nothing
+        except ValueError:
+            pass
 
 
     def on_justify_center_button_clicked(self, widget):
-        selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()             # Get selection bounds
-        self.reset_justification(selection_start, selection_end)                                  # All alignments are mutually exclusive
-        self.entry_textbuffer.apply_tag_by_name("justify_center", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+        try:
+            selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()             # Get selection bounds
+            self.reset_justification(selection_start, selection_end)                                  # All alignments are mutually exclusive
+            self.entry_textbuffer.apply_tag_by_name("justify_center", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+            self.entry_textbuffer.set_modified(True)                                                  # Mark the buffer as modified
+        # If no text is selected, do nothing
+        except ValueError:
+            pass
 
 
     def on_justify_right_button_clicked(self, widget):
-        selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()            # Get selection bounds
-        self.reset_justification(selection_start, selection_end)                                 # All alignments are mutually exclusive
-        self.entry_textbuffer.apply_tag_by_name("justify_right", selection_start, selection_end) # Apply the tag to the selected part of the buffer
-
+        try:
+            selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()            # Get selection bounds
+            self.reset_justification(selection_start, selection_end)                                 # All alignments are mutually exclusive
+            self.entry_textbuffer.apply_tag_by_name("justify_right", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+            self.entry_textbuffer.set_modified(True)                                                 # Mark the buffer as modified
+        # If no text is selected, do nothing
+        except ValueError:
+            pass
     
+
     def on_justify_fill_button_clicked(self, widget):
-        selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()           # Get selection bounds
-        self.reset_justification(selection_start, selection_end)                                # All alignments are mutually exclusive
-        self.entry_textbuffer.apply_tag_by_name("justify_fill", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+        try:
+            selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()           # Get selection bounds
+            self.reset_justification(selection_start, selection_end)                                # All alignments are mutually exclusive
+            self.entry_textbuffer.apply_tag_by_name("justify_fill", selection_start, selection_end) # Apply the tag to the selected part of the buffer
+            self.entry_textbuffer.set_modified(True)                                                # Mark the buffer as modified
+        # If no text is selected, do nothing
+        except ValueError:
+            pass
 
 
     # Reset the justify tags to allow changing the alignment of an already aligned paragraph
@@ -650,16 +685,18 @@ class LifelogApp:
 
     def on_format_reset_button_clicked(self, widget):
         # Remove the tags from the selected text
-        selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()
-        self.entry_textbuffer.remove_tag_by_name("bold", selection_start, selection_end)
-        self.entry_textbuffer.remove_tag_by_name("italic", selection_start, selection_end)
-        self.entry_textbuffer.remove_tag_by_name("underline", selection_start, selection_end)
-        self.entry_textbuffer.remove_tag_by_name("strikethrough", selection_start, selection_end)
-        self.entry_textbuffer.remove_tag_by_name("justify_left", selection_start, selection_end)
-        self.entry_textbuffer.remove_tag_by_name("justify_center", selection_start, selection_end)
-        self.entry_textbuffer.remove_tag_by_name("justify_right", selection_start, selection_end)
-        self.entry_textbuffer.remove_tag_by_name("justify_fill", selection_start, selection_end)
+        try:
+            selection_start, selection_end = self.entry_textbuffer.get_selection_bounds()
+            self.entry_textbuffer.remove_tag_by_name("bold", selection_start, selection_end)
+            self.entry_textbuffer.remove_tag_by_name("italic", selection_start, selection_end)
+            self.entry_textbuffer.remove_tag_by_name("underline", selection_start, selection_end)
+            self.entry_textbuffer.remove_tag_by_name("strikethrough", selection_start, selection_end)
 
+            self.reset_justification(selection_start, selection_end)
+
+            self.entry_textbuffer.set_modified(True) # Mark the buffer as modified
+        except ValueError:
+            pass
 
 # Start the application
 if __name__ == "__main__":
