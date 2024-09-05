@@ -21,8 +21,6 @@ from Cryptodome.Util.Padding import pad, unpad
 
 from hashlib import scrypt
 
-import argon2
-
 class AESCipher:
     def __init__(self, key):
         self.key = key

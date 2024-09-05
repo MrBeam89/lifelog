@@ -16,7 +16,6 @@
 #    Lifelog. If not, see <https://www.gnu.org/licenses/>. 
 
 import os
-import yaml
 
 APP_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 GLADE_FILENAME = "ui.glade"

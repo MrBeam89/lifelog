@@ -1,1 +1,3 @@
+pygobject # Requires gobject-introspection
 scrypt
+pycryptodomex
