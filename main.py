@@ -121,6 +121,7 @@ class LifelogApp:
             "on_new_file_button_clicked": self.on_new_file_button_clicked,
             "on_open_file_button_clicked": self.on_open_file_button_clicked,
             "on_settings_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
+            "on_about_button_clicked": self.on_about_button_clicked,
             
             # Other main widgets
             "on_calendar_day_selected": self.on_calendar_day_selected,
@@ -434,6 +435,14 @@ class LifelogApp:
         filechooser_win.destroy()
         
 
+    def on_about_button_clicked(self, widget):
+        temp_builder = Gtk.Builder()
+        temp_builder.add_from_file(config.GLADE_FILEPATH)
+        about_dialog = temp_builder.get_object("about_dialog")
+        about_dialog.run()
+        about_dialog.destroy()
+
+
     def on_calendar_day_selected(self, widget):
         if self.trigger_callback_func == False:
             return
@@ -697,6 +706,7 @@ class LifelogApp:
             self.entry_textbuffer.set_modified(True) # Mark the buffer as modified
         except ValueError:
             pass
+
 
 # Start the application
 if __name__ == "__main__":
