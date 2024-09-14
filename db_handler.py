@@ -34,8 +34,7 @@ class DbHandler:
 	        entry_title BLOB,
     	    entry_tags BLOB,
             entry_mood BLOB,
-            entry_content BLOB,
-	        entry_image BLOB
+            entry_content BLOB
         );
         ''')
         
@@ -44,7 +43,7 @@ class DbHandler:
             db_id INTEGER PRIMARY KEY AUTOINCREMENT,
             key TEXT UNIQUE,
             value BLOB
-        )
+        );
         ''')
 
 
@@ -68,17 +67,16 @@ class DbHandler:
         entry_title TEXT,
         entry_tags TEXT,
         entry_mood INTEGER,
-        entry_content BLOB,
-        entry_image BLOB
+        entry_content BLOB
         );
         ''')
 
 
     # Add or update an entry in the database
-    def update_entry(self, entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_image):
+    def update_entry(self, entry_date, entry_title, entry_tags, entry_mood, entry_content):
         self.cursor.execute('''
-        INSERT OR REPLACE INTO entries (entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_image) VALUES (?, ?, ?, ?, ?, ?)
-        ''', (entry_date, entry_title, entry_tags, entry_mood, entry_content, entry_image))
+        INSERT OR REPLACE INTO entries (entry_date, entry_title, entry_tags, entry_mood, entry_content) VALUES (?, ?, ?, ?, ?)
+        ''', (entry_date, entry_title, entry_tags, entry_mood, entry_content))
 
 
     # Get an entry from the database by its date

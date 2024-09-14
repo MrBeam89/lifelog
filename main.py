@@ -18,7 +18,7 @@
 
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Pango
+from gi.repository import Gtk, Pango, GdkPixbuf
 from sqlite3 import Binary
 from datetime import date, datetime
 from os import urandom
@@ -50,13 +50,11 @@ class LifelogApp:
         self.unsaved_entry_title = ""
         self.unsaved_entry_tags = ""
         self.unsaved_entry_mood = 50
-        self.unsaved_entry_image = Binary(b'').tobytes()
 
         # Default entry details
         self.saved_entry_title = ""
         self.saved_entry_tags = ""
         self.saved_entry_mood = 50
-        self.saved_entry_image = Binary(b'').tobytes()
 
         self.trigger_callback_func = True # Set to False to avoid recursion when necessary
 
@@ -79,6 +77,7 @@ class LifelogApp:
         self.tags_entry = self.builder.get_object("tags_entry")
         self.mood_scale = self.builder.get_object("mood_scale")
         self.mood_adjustment = self.builder.get_object("mood_adjustment")
+        self.add_image_button = self.builder.get_object("add_image_button")
 
         # Tags for the styling the text
         self.bold_tag = self.entry_textbuffer.create_tag("bold", weight=Pango.Weight.BOLD)
@@ -91,11 +90,6 @@ class LifelogApp:
         self.justify_center_tag = self.entry_textbuffer.create_tag("justify_center", justification=Gtk.Justification.CENTER)
         self.justify_right_tag = self.entry_textbuffer.create_tag("justify_right", justification=Gtk.Justification.RIGHT)
         self.justify_fill_tag = self.entry_textbuffer.create_tag("justify_fill", justification=Gtk.Justification.FILL)
-
-        # Load the image tab of settings notebook
-        self.image = self.builder.get_object("image")
-        self.add_image_button = self.builder.get_object("add_image_button")
-        self.remove_image_button = self.builder.get_object("remove_image_button")
 
         # Load the statusbar
         self.statusbar = self.builder.get_object("statusbar")
@@ -130,6 +124,7 @@ class LifelogApp:
             "on_calendar_month_changed": self.on_calendar_month_changed,
             "on_calendar_next_year": self.on_calendar_month_changed, # Logic is the same as "on_calendar_month_changed"
             "on_calendar_prev_year": self.on_calendar_month_changed, # Same
+            "on_add_image_button_clicked": self.on_add_image_button_clicked,
             "on_apply_entry_changes_button_clicked": self.on_apply_entry_changes_button_clicked,
 
             # Format style buttons
@@ -146,10 +141,6 @@ class LifelogApp:
 
             # Format reset button
             "on_format_reset_button_clicked": self.on_format_reset_button_clicked,
-
-            # Image tab buttons
-            "on_add_image_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
-            "on_remove_image_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
 
             # Signals for the search dialog
             "on_search_button_search_win_clicked": self.on_search_button_search_win_clicked,
@@ -175,10 +166,6 @@ class LifelogApp:
         statusbar_date_message = f"Welcome! The current date is : {self.user_formatted_date}"
         self.change_statusbar_message(self.info_statusbar_context_id, statusbar_date_message)
 
-        # By default, image isn't loaded
-        self.image.set_visible(False)
-        self.remove_image_button.set_visible(False)
-
         # Start the main loop
         Gtk.main()
 
@@ -190,17 +177,15 @@ class LifelogApp:
         self.unsaved_entry_mood = int(self.mood_adjustment.get_value())
         entry_start, entry_end = self.entry_textbuffer.get_bounds()
         self.unsaved_entry_content = self.entry_textbuffer.serialize(self.entry_textbuffer, self.entry_textbuffer_tags, entry_start, entry_end)
-        self.unsaved_entry_image = Binary(b'').tobytes()
 
         # Compare them to the saved entry details
         is_entry_title_modified = self.saved_entry_title != self.unsaved_entry_title
         is_entry_tags_modified = self.saved_entry_tags != self.unsaved_entry_tags
         is_entry_mood_modified = self.saved_entry_mood != self.unsaved_entry_mood
         is_entry_content_modified = self.entry_textbuffer.get_modified()
-        is_entry_image_modified = self.saved_entry_image != self.unsaved_entry_image
 
         # Return True if any change has been made
-        return is_entry_title_modified or is_entry_tags_modified or is_entry_mood_modified or is_entry_content_modified or is_entry_image_modified
+        return is_entry_title_modified or is_entry_tags_modified or is_entry_mood_modified or is_entry_content_modified
 
 
     def open_unsaved_changes_dialog(self):
@@ -367,9 +352,6 @@ class LifelogApp:
             statusbar_date_message = f"Welcome! The current date is : {self.user_formatted_date}"
             self.change_statusbar_message(self.info_statusbar_context_id, statusbar_date_message)
 
-            # By default, image isn't loaded
-            self.image.set_visible(False)
-            self.remove_image_button.set_visible(False)
         elif filechooser_response == Gtk.ResponseType.CANCEL:
             pass
         
@@ -431,9 +413,6 @@ class LifelogApp:
             statusbar_date_message = f"Welcome! The current date is : {self.user_formatted_date}"
             self.change_statusbar_message(self.info_statusbar_context_id, statusbar_date_message)
 
-            # By default, image isn't loaded
-            self.image.set_visible(False)
-            self.remove_image_button.set_visible(False)
         elif filechooser_response == Gtk.ResponseType.CANCEL:
             pass
         
@@ -656,7 +635,6 @@ class LifelogApp:
         self.saved_entry_tags = self.aes_cipher.decrypt(encrypted_entry_tags).decode("utf-8")
         self.saved_entry_mood = int(self.aes_cipher.decrypt(encrypted_entry_mood).decode("utf-8") or "50")
         saved_entry_content = self.aes_cipher.decrypt(encrypted_entry_content)
-        self.saved_entry_image = entry[6]
 
         # Display the entry info (not entry content)
         self.title_entry.set_text(self.saved_entry_title)
@@ -669,9 +647,6 @@ class LifelogApp:
             entry_end = self.entry_textbuffer.get_end_iter() # Get the position of the end of the buffer to insert the new content
             self.entry_textbuffer.deserialize(self.entry_textbuffer, self.entry_textbuffer_tags, entry_end, saved_entry_content) # Insert the content
         self.entry_textbuffer.set_modified(False)
-
-        #self.image.set_visible(bool(entry[6]))
-        #self.remove_image_button.set_visible(True if self.saved_entry_image else False)
 
         # Change the window title and statusbar message
         if self.saved_entry_title:
@@ -725,8 +700,6 @@ class LifelogApp:
         # Serialize the textbuffer
         entry_start, entry_end = self.entry_textbuffer.get_bounds()
         entry_content = self.entry_textbuffer.serialize(self.entry_textbuffer, self.entry_textbuffer_tags, entry_start, entry_end)
-
-        entry_image = Binary(b'').tobytes()
  
         # Encrypt the entry data
         encrypted_entry_title = self.aes_cipher.encrypt(encoded_entry_title)
@@ -736,7 +709,7 @@ class LifelogApp:
 
         # Update or add the entry in the database
         db = db_handler.DbHandler(self.db_filepath)
-        db.update_entry(self.db_formatted_date, encrypted_entry_title, encrypted_entry_tags, encrypted_entry_mood, encrypted_entry_content, entry_image)
+        db.update_entry(self.db_formatted_date, encrypted_entry_title, encrypted_entry_tags, encrypted_entry_mood, encrypted_entry_content)
         db.close()
 
         # Set the entry data as saved
@@ -744,7 +717,6 @@ class LifelogApp:
         self.saved_entry_tags = encoded_entry_tags.decode("utf-8")
         self.saved_entry_mood = int(encoded_entry_mood.decode("utf-8"))
         self.entry_textbuffer.set_modified(False)
-        self.saved_entry_image = entry_image
 
         # Update the title of the main window with the date and entry title if there is one
         if self.saved_entry_title:
@@ -865,6 +837,45 @@ class LifelogApp:
         except ValueError:
             pass
 
+
+    def on_add_image_button_clicked(self, widget):
+        # Temporary builder to fix the filechooser dialog being empty after closing and reopening
+        temp_builder = Gtk.Builder()
+        temp_builder.add_from_file(config.GLADE_FILEPATH)
+        temp_builder.connect_signals(self.handlers)
+
+        # Load the filechooser dialog and button
+        filechooser_win = temp_builder.get_object("filechooser_win")
+        ok_button_filechooser_win = temp_builder.get_object("ok_button_filechooser_win")
+
+        # Configure the dialog as an open dialog
+        filechooser_win.set_title("Open Image")
+        filechooser_win.set_action(Gtk.FileChooserAction.OPEN)
+        ok_button_filechooser_win.set_label(Gtk.STOCK_OPEN)
+        
+        # Run the dialog
+        filechooser_response = filechooser_win.run()
+        if filechooser_response == Gtk.ResponseType.OK:
+            # Get the selected file or cancel the operation
+            image_filepath = filechooser_win.get_filename()
+
+            # Load the selected image
+            try:
+                image_pixbuf = GdkPixbuf.Pixbuf.new_from_file(image_filepath)
+            except Exception as e:
+                self.change_statusbar_message(self.error_statusbar_context_id, "An error occurred: " + str(e))
+                return
+
+            # Insert the image at the cursor
+            cursor_mark = self.entry_textbuffer.get_insert()
+            cursor_iter = self.entry_textbuffer.get_iter_at_mark(cursor_mark)
+            self.entry_textbuffer.insert_pixbuf(cursor_iter, image_pixbuf)
+
+            # Close the filechooser window
+            self.change_statusbar_message(self.info_statusbar_context_id, "Image successfully added!")
+            filechooser_win.destroy()
+        else:
+            filechooser_win.destroy()
 
 # Start the application
 if __name__ == "__main__":
