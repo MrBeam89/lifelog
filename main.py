@@ -120,6 +120,7 @@ class LifelogApp:
             # Toolbar buttons
             "on_new_file_button_clicked": self.on_new_file_button_clicked,
             "on_open_file_button_clicked": self.on_open_file_button_clicked,
+            "on_search_button_clicked": self.on_search_button_clicked,
             "on_settings_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
             "on_about_button_clicked": self.on_about_button_clicked,
             
@@ -148,6 +149,10 @@ class LifelogApp:
             # Image tab buttons
             "on_add_image_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
             "on_remove_image_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
+
+            # Signals for the search dialog
+            "on_search_button_search_win_clicked": self.on_search_button_search_win_clicked,
+            "on_search_treeview_row_activated": self.on_search_treeview_row_activated,
         }
         self.builder.connect_signals(self.handlers)
         
@@ -159,7 +164,7 @@ class LifelogApp:
         # Automatically selects today's entry and updates the date
         self.selected_date = self.calendar.get_date()
         self.selected_date_original = self.selected_date
-        self.db_formatted_date = f"{self.selected_date[0]}-{self.selected_date[1]+1}-{self.selected_date[2]}"
+        self.db_formatted_date = f"{self.selected_date[0]}-{str(self.selected_date[1]+1).zfill(2)}-{str(self.selected_date[2]).zfill(2)}"
         date_obj = datetime.strptime(self.db_formatted_date, "%Y-%m-%d")
         self.user_formatted_date = date_obj.strftime("%b %d, %Y")
 
@@ -435,6 +440,149 @@ class LifelogApp:
         filechooser_win.destroy()
         
 
+    def on_search_button_clicked(self, widget):
+        # Unable to search if no file is opened
+        if self.is_file_opened == False:
+            self.change_statusbar_message(self.info_statusbar_context_id, "No file is opened!")
+            return
+        
+        # Temporary builder to fix the search dialog being empty after closing and reopening
+        temp_builder = Gtk.Builder()
+        temp_builder.add_from_file(config.GLADE_FILEPATH)
+        temp_builder.connect_signals(self.handlers)
+        
+        # Load the search dialog and the used widgets for them to be able to be accessed by on_search_button_search_win_clicked
+        search_dialog = temp_builder.get_object("search_dialog")
+        self.from_month_combobox = temp_builder.get_object("from_month_combobox")
+        self.from_day_combobox = temp_builder.get_object("from_day_combobox")
+        self.from_year_entry = temp_builder.get_object("from_year_entry")
+        self.to_month_combobox = temp_builder.get_object("to_month_combobox")
+        self.to_day_combobox = temp_builder.get_object("to_day_combobox")
+        self.to_year_entry = temp_builder.get_object("to_year_entry")
+        self.search_criteria_combobox = temp_builder.get_object("search_criteria_combobox")
+        self.search_entry = temp_builder.get_object("search_entry")
+        self.search_treeview = temp_builder.get_object("search_treeview")
+        self.search_liststore = temp_builder.get_object("search_liststore")
+        self.search_message_label = temp_builder.get_object("search_message_label")
+        self.jump_to_button = temp_builder.get_object("jump_to_button")
+
+        # Resize the search dialog to have the same size as the main window
+        main_win_size = self.main_win.get_size()
+        search_dialog.set_default_size(main_win_size[0], main_win_size[1])
+
+        # Set the to date to today
+        self.from_year_entry.set_text(self.current_date[0])
+        self.from_month_combobox.set_active(int(self.current_date[1])-1)
+        self.from_day_combobox.set_active(int(self.current_date[2])-1)
+
+        self.to_year_entry.set_text(self.current_date[0])
+        self.to_month_combobox.set_active(int(self.current_date[1])-1)
+        self.to_day_combobox.set_active(int(self.current_date[2])-1)
+
+        # Make the jump to button not visible until search has been executed and entry selected
+        self.jump_to_button.set_visible(False)
+
+        # Run the dialog
+        response = search_dialog.run()
+        if response == Gtk.ResponseType.OK:
+            # Get the selected entry's date (ISO 8601 format), then separate the date into year, month, and day
+            selection = self.search_treeview.get_selection()
+            model, treeiter = selection.get_selected()
+            selected_entry_date = model[treeiter][0].split("-")
+
+            # Check if there are unsaved changes before jumping to the selected entry
+            if self.check_for_unsaved_changes():
+                unsaved_changes_dialog_response = self.open_unsaved_changes_dialog()
+                if unsaved_changes_dialog_response == False:
+                    search_dialog.destroy()
+                    return
+            
+            # Set the calendar to the selected entry's date
+            self.calendar.select_day(int(selected_entry_date[2]))
+            self.calendar.select_month(int(selected_entry_date[1])-1, int(selected_entry_date[0]))
+            self.on_calendar_day_selected(self.calendar)
+
+            search_dialog.destroy()
+
+        else: # Cancel button clicked
+            search_dialog.destroy()
+
+
+    def on_search_treeview_row_activated(self, *_):
+        # Make the jump to button visible when an entry is selected
+        self.jump_to_button.set_visible(True)
+
+
+    def on_search_button_search_win_clicked(self, widget):
+        # Get the date range
+        from_month = str(self.from_month_combobox.get_active() + 1).zfill(2)
+        from_day = self.from_day_combobox.get_active_text().zfill(2)
+        from_year = self.from_year_entry.get_text()
+        to_month = str(self.to_month_combobox.get_active() + 1).zfill(2)
+        to_day = self.to_day_combobox.get_active_text().zfill(2)
+        to_year = self.to_year_entry.get_text()
+
+        # Check if the years are numbers
+        if not from_year.isnumeric() or not to_year.isnumeric():
+            self.search_message_label.set_text("Invalid year!")
+            return
+
+        # Convert the date to the ISO 8601 format (used with the database)
+        from_date = f"{from_year}-{from_month}-{from_day}"
+        to_date = f"{to_year}-{to_month}-{to_day}"
+        
+        # Check if the date range is valid
+        if from_date > to_date:
+            self.search_message_label.set_text("Invalid date range!")
+            return
+
+        # Get the search criteria
+        criteria_index_entry = {"Title": 1, # Title is the first column
+                                "Tags": 2,  # Tags are the second column 
+                                "Mood": 3}  # Mood is the third column
+        search_criteria = criteria_index_entry[self.search_criteria_combobox.get_active_text()]
+        search_content = self.search_entry.get_text()
+
+        # Remove the previous search results
+        self.jump_to_button.set_visible(False)
+        self.search_liststore.clear()
+
+        # Search from the db
+        self.search_message_label.set_text("Searching...")
+        db = db_handler.DbHandler(self.db_filepath)
+        entries_found = db.get_all_entries_between(from_date, to_date)
+        db.close()
+
+        # Filter the entries based on the search criteria
+        filtered_entries = []
+        for entry in entries_found:
+            entry_data = list(entry[1:5]) # Ignore the entry id (from the database) and the entry content
+
+            # Decrypt the entry data for each column except the date column (the first one) as it isn't encrypted
+            for column_i in range(1, len(entry_data)):
+                entry_data[column_i] = self.aes_cipher.decrypt(entry_data[column_i]).decode("utf-8")
+            
+            # Check if the entry data contains the search content
+            if search_content in entry_data[search_criteria]:
+                # Display a more user-friendly date (the original is kept for jumping to the entry)
+                user_formatted_date = datetime.fromisoformat(entry_data[0]).strftime("%b %d, %Y")
+                entry_data.insert(1, user_formatted_date)
+
+                # Add the entry to the filtered list
+                filtered_entries.append(entry_data)
+
+        # Add the elements to the Gtk.Liststore and therefore to the Gtk.TreeView
+        for filtered_entry in filtered_entries:
+            self.search_liststore.append(filtered_entry)
+
+        # Update the search message to the adequate quantity
+        result_message = "Search done! "
+        if len(filtered_entries) == 0: result_message += "No matching entry found."
+        elif len(filtered_entries) == 1: result_message += "1 matching entry found."
+        else: result_message += f"{len(filtered_entries)} matching entries found."
+        self.search_message_label.set_text(result_message)
+
+
     def on_about_button_clicked(self, widget):
         temp_builder = Gtk.Builder()
         temp_builder.add_from_file(config.GLADE_FILEPATH)
@@ -470,13 +618,13 @@ class LifelogApp:
 
                 self.entry_textbuffer.set_modified(True)
 
-                return
+                return False
 
 
         # Get the selected date and format it to database and user readable format
         self.selected_date = self.calendar.get_date()
         self.selected_date_original = self.selected_date
-        self.db_formatted_date = f"{self.selected_date[0]}-{self.selected_date[1]+1}-{self.selected_date[2]}"
+        self.db_formatted_date = f"{self.selected_date[0]}-{str(self.selected_date[1]+1).zfill(2)}-{str(self.selected_date[2]).zfill(2)}"
         date_obj = datetime.strptime(self.db_formatted_date, "%Y-%m-%d")
         self.user_formatted_date = date_obj.strftime("%b %d, %Y")
 
@@ -525,6 +673,7 @@ class LifelogApp:
             self.main_win.set_title(f"Lifelog - {self.user_formatted_date}")
             self.change_statusbar_message(self.info_statusbar_context_id, f"No existing entry found for date : {self.user_formatted_date}")
 
+        return True
 
     # Mark the days of the existing entries
     def on_calendar_month_changed(self, widget):
@@ -534,8 +683,8 @@ class LifelogApp:
                 self.calendar.unmark_day(day)
 
         # Get the month and year from the calendar
-        month = self.calendar.get_property("month")+1
-        year = self.calendar.get_property("year")
+        month = str(self.calendar.get_property("month")+1).zfill(2)
+        year = str(self.calendar.get_property("year"))
 
         # Get the existing entry dates for the selected month and year
         db = db_handler.DbHandler(self.db_filepath)
@@ -586,6 +735,7 @@ class LifelogApp:
         self.saved_entry_title = encoded_entry_title.decode("utf-8")
         self.saved_entry_tags = encoded_entry_tags.decode("utf-8")
         self.saved_entry_mood = int(encoded_entry_mood.decode("utf-8"))
+        self.entry_textbuffer.set_modified(False)
         self.saved_entry_image = entry_image
 
         # Update the title of the main window with the date and entry title if there is one

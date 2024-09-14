@@ -97,15 +97,29 @@ Author: MrBeam89_
               </packing>
             </child>
             <child>
+              <object class="GtkToolButton" id="search_button">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Search</property>
+                <property name="label" translatable="yes">Search</property>
+                <property name="use-underline">True</property>
+                <property name="icon-name">edit-find</property>
+                <signal name="clicked" handler="on_search_button_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkToolButton" id="settings_button">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
-                <property name="tooltip-text" translatable="yes">Settings (Alt-S)</property>
+                <property name="tooltip-text" translatable="yes">Settings</property>
                 <property name="label" translatable="yes">Settings</property>
                 <property name="use-underline">True</property>
                 <property name="icon-name">document-properties</property>
                 <signal name="clicked" handler="on_settings_button_clicked" swapped="no"/>
-                <accelerator key="s" signal="clicked" modifiers="GDK_MOD1_MASK"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -1355,6 +1369,474 @@ Author: MrBeam89_
       <action-widget response="-5">button4</action-widget>
     </action-widgets>
   </object>
+  <object class="GtkDialog" id="search_dialog">
+    <property name="can-focus">False</property>
+    <property name="title" translatable="yes">Search</property>
+    <property name="destroy-with-parent">True</property>
+    <property name="type-hint">dialog</property>
+    <property name="transient-for">main_win</property>
+    <property name="attached-to">main_win</property>
+    <child internal-child="vbox">
+      <object class="GtkBox">
+        <property name="can-focus">False</property>
+        <property name="margin-start">5</property>
+        <property name="margin-end">5</property>
+        <property name="margin-top">5</property>
+        <property name="margin-bottom">5</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox">
+            <property name="can-focus">False</property>
+            <property name="layout-style">end</property>
+            <child>
+              <object class="GtkButton" id="button7">
+                <property name="label">gtk-cancel</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <property name="use-stock">True</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="jump_to_button">
+                <property name="label">gtk-jump-to</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <property name="use-stock">True</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkBox">
+            <property name="visible">True</property>
+            <property name="can-focus">False</property>
+            <property name="orientation">vertical</property>
+            <child>
+              <!-- n-columns=2 n-rows=3 -->
+              <object class="GtkGrid">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="margin-bottom">5</property>
+                <property name="row-spacing">5</property>
+                <property name="column-spacing">5</property>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">From :</property>
+                  </object>
+                  <packing>
+                    <property name="left-attach">0</property>
+                    <property name="top-attach">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">To :</property>
+                  </object>
+                  <packing>
+                    <property name="left-attach">0</property>
+                    <property name="top-attach">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <property name="label" translatable="yes">Search :</property>
+                  </object>
+                  <packing>
+                    <property name="left-attach">0</property>
+                    <property name="top-attach">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkBox">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <child>
+                      <object class="GtkComboBoxText" id="from_month_combobox">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="margin-end">5</property>
+                        <items>
+                          <item translatable="yes">January</item>
+                          <item translatable="yes">February</item>
+                          <item translatable="yes">March</item>
+                          <item translatable="yes">April</item>
+                          <item translatable="yes">May</item>
+                          <item translatable="yes">June</item>
+                          <item translatable="yes">July</item>
+                          <item translatable="yes">August</item>
+                          <item translatable="yes">September</item>
+                          <item translatable="yes">October</item>
+                          <item translatable="yes">November</item>
+                          <item translatable="yes">December</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="from_day_combobox">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="margin-end">5</property>
+                        <items>
+                          <item translatable="yes">1</item>
+                          <item translatable="yes">2</item>
+                          <item translatable="yes">3</item>
+                          <item translatable="yes">4</item>
+                          <item translatable="yes">5</item>
+                          <item translatable="yes">6</item>
+                          <item translatable="yes">7</item>
+                          <item translatable="yes">8</item>
+                          <item translatable="yes">9</item>
+                          <item translatable="yes">10</item>
+                          <item translatable="yes">11</item>
+                          <item translatable="yes">12</item>
+                          <item translatable="yes">13</item>
+                          <item translatable="yes">14</item>
+                          <item translatable="yes">15</item>
+                          <item translatable="yes">16</item>
+                          <item translatable="yes">17</item>
+                          <item translatable="yes">18</item>
+                          <item translatable="yes">19</item>
+                          <item translatable="yes">20</item>
+                          <item translatable="yes">21</item>
+                          <item translatable="yes">22</item>
+                          <item translatable="yes">23</item>
+                          <item translatable="yes">24</item>
+                          <item translatable="yes">25</item>
+                          <item translatable="yes">26</item>
+                          <item translatable="yes">27</item>
+                          <item translatable="yes">28</item>
+                          <item translatable="yes">29</item>
+                          <item translatable="yes">30</item>
+                          <item translatable="yes">31</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkEntry" id="from_year_entry">
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="width-chars">4</property>
+                        <property name="input-purpose">number</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left-attach">1</property>
+                    <property name="top-attach">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkBox">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <child>
+                      <object class="GtkComboBoxText" id="to_month_combobox">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="margin-end">5</property>
+                        <items>
+                          <item translatable="yes">January</item>
+                          <item translatable="yes">February</item>
+                          <item translatable="yes">March</item>
+                          <item translatable="yes">April</item>
+                          <item translatable="yes">May</item>
+                          <item translatable="yes">June</item>
+                          <item translatable="yes">July</item>
+                          <item translatable="yes">August</item>
+                          <item translatable="yes">September</item>
+                          <item translatable="yes">October</item>
+                          <item translatable="yes">November</item>
+                          <item translatable="yes">December</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="to_day_combobox">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="margin-end">5</property>
+                        <items>
+                          <item translatable="yes">1</item>
+                          <item translatable="yes">2</item>
+                          <item translatable="yes">3</item>
+                          <item translatable="yes">4</item>
+                          <item translatable="yes">5</item>
+                          <item translatable="yes">6</item>
+                          <item translatable="yes">7</item>
+                          <item translatable="yes">8</item>
+                          <item translatable="yes">9</item>
+                          <item translatable="yes">10</item>
+                          <item translatable="yes">11</item>
+                          <item translatable="yes">12</item>
+                          <item translatable="yes">13</item>
+                          <item translatable="yes">14</item>
+                          <item translatable="yes">15</item>
+                          <item translatable="yes">16</item>
+                          <item translatable="yes">17</item>
+                          <item translatable="yes">18</item>
+                          <item translatable="yes">19</item>
+                          <item translatable="yes">20</item>
+                          <item translatable="yes">21</item>
+                          <item translatable="yes">22</item>
+                          <item translatable="yes">23</item>
+                          <item translatable="yes">24</item>
+                          <item translatable="yes">25</item>
+                          <item translatable="yes">26</item>
+                          <item translatable="yes">27</item>
+                          <item translatable="yes">28</item>
+                          <item translatable="yes">29</item>
+                          <item translatable="yes">30</item>
+                          <item translatable="yes">31</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkEntry" id="to_year_entry">
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="width-chars">4</property>
+                        <property name="input-purpose">number</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left-attach">1</property>
+                    <property name="top-attach">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkBox">
+                    <property name="visible">True</property>
+                    <property name="can-focus">False</property>
+                    <child>
+                      <object class="GtkComboBoxText" id="search_criteria_combobox">
+                        <property name="visible">True</property>
+                        <property name="can-focus">False</property>
+                        <property name="margin-end">5</property>
+                        <property name="active">0</property>
+                        <items>
+                          <item translatable="yes">Title</item>
+                          <item translatable="yes">Tags</item>
+                          <item translatable="yes">Mood</item>
+                        </items>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkEntry" id="search_entry">
+                        <property name="visible">True</property>
+                        <property name="can-focus">True</property>
+                        <property name="hexpand">True</property>
+                        <property name="width-chars">0</property>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left-attach">1</property>
+                    <property name="top-attach">2</property>
+                  </packing>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="search_button_search_win">
+                <property name="label" translatable="yes">Search</property>
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="receives-default">True</property>
+                <property name="margin-bottom">5</property>
+                <property name="hexpand">True</property>
+                <signal name="clicked" handler="on_search_button_search_win_clicked" swapped="no"/>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkScrolledWindow">
+                <property name="visible">True</property>
+                <property name="can-focus">True</property>
+                <property name="margin-bottom">10</property>
+                <property name="hexpand">True</property>
+                <property name="vexpand">True</property>
+                <property name="shadow-type">in</property>
+                <child>
+                  <object class="GtkTreeView" id="search_treeview">
+                    <property name="visible">True</property>
+                    <property name="can-focus">True</property>
+                    <property name="model">search_liststore</property>
+                    <property name="search-column">0</property>
+                    <property name="enable-grid-lines">both</property>
+                    <property name="activate-on-single-click">True</property>
+                    <signal name="row-activated" handler="on_search_treeview_row_activated" swapped="no"/>
+                    <child internal-child="selection">
+                      <object class="GtkTreeSelection"/>
+                    </child>
+                    <child>
+                      <object class="GtkTreeViewColumn" id="db_date_column">
+                        <property name="visible">False</property>
+                        <property name="title" translatable="yes">db__date</property>
+                        <child>
+                          <object class="GtkCellRendererText" id="db_date_cr"/>
+                          <attributes>
+                            <attribute name="text">0</attribute>
+                          </attributes>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkTreeViewColumn" id="date_column">
+                        <property name="title" translatable="yes">Date</property>
+                        <child>
+                          <object class="GtkCellRendererText" id="date_cr"/>
+                          <attributes>
+                            <attribute name="text">1</attribute>
+                          </attributes>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkTreeViewColumn" id="title_column">
+                        <property name="title" translatable="yes">Title</property>
+                        <child>
+                          <object class="GtkCellRendererText" id="title_cr"/>
+                          <attributes>
+                            <attribute name="text">2</attribute>
+                          </attributes>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkTreeViewColumn" id="tags_column">
+                        <property name="title" translatable="yes">Tags</property>
+                        <child>
+                          <object class="GtkCellRendererText" id="tags_cr"/>
+                          <attributes>
+                            <attribute name="text">3</attribute>
+                          </attributes>
+                        </child>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkTreeViewColumn" id="mood_column">
+                        <property name="title" translatable="yes">Mood</property>
+                        <child>
+                          <object class="GtkCellRendererText" id="mood_cr"/>
+                          <attributes>
+                            <attribute name="text">4</attribute>
+                          </attributes>
+                        </child>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">2</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="search_message_label">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="halign">start</property>
+                <property name="margin-bottom">10</property>
+                <property name="label" translatable="yes">Awaiting user input...</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">3</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+    <action-widgets>
+      <action-widget response="-6">button7</action-widget>
+      <action-widget response="-5">jump_to_button</action-widget>
+    </action-widgets>
+  </object>
   <object class="GtkDialog" id="unsaved_changes_dialog">
     <property name="can-focus">False</property>
     <property name="title" translatable="yes">Unsaved changes</property>
@@ -1456,5 +1938,19 @@ Author: MrBeam89_
       <action-widget response="-9">button1</action-widget>
       <action-widget response="-8">button2</action-widget>
     </action-widgets>
+  </object>
+  <object class="GtkListStore" id="search_liststore">
+    <columns>
+      <!-- column-name date_db -->
+      <column type="gchararray"/>
+      <!-- column-name date -->
+      <column type="gchararray"/>
+      <!-- column-name title -->
+      <column type="gchararray"/>
+      <!-- column-name tags -->
+      <column type="gchararray"/>
+      <!-- column-name mood -->
+      <column type="gchararray"/>
+    </columns>
   </object>
 </interface>

@@ -31,9 +31,9 @@ class DbHandler:
         CREATE TABLE IF NOT EXISTS entries (
 	        db_id INTEGER PRIMARY KEY AUTOINCREMENT,
 	        entry_date DATE UNIQUE,
-	        entry_title TEXT,
-    	    entry_tags TEXT,
-            entry_mood INTEGER,
+	        entry_title BLOB,
+    	    entry_tags BLOB,
+            entry_mood BLOB,
             entry_content BLOB,
 	        entry_image BLOB
         );
@@ -93,6 +93,14 @@ class DbHandler:
     def get_existing_entry_dates_for_month_year(self, month, year):
         query = "SELECT entry_date FROM entries WHERE entry_date LIKE ?"
         self.cursor.execute(query, (f"{year}-{month}-%",))
+        return self.cursor.fetchall()
+
+    
+    # Get all existing entries between two dates
+    def get_all_entries_between(self, from_date, to_date):
+        self.cursor.execute('''
+        SELECT * FROM entries WHERE entry_date >= ? AND entry_date <= ?
+        ''', (from_date, to_date))
         return self.cursor.fetchall()
 
 
