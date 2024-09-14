@@ -112,14 +112,14 @@ Author: MrBeam89_
               </packing>
             </child>
             <child>
-              <object class="GtkToolButton" id="settings_button">
+              <object class="GtkToolButton" id="today_button">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
-                <property name="tooltip-text" translatable="yes">Settings</property>
-                <property name="label" translatable="yes">Settings</property>
+                <property name="tooltip-text" translatable="yes">Today</property>
+                <property name="label" translatable="yes">Today</property>
                 <property name="use-underline">True</property>
-                <property name="icon-name">document-properties</property>
-                <signal name="clicked" handler="on_settings_button_clicked" swapped="no"/>
+                <property name="icon-name">go-home</property>
+                <signal name="clicked" handler="on_today_button_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -130,6 +130,21 @@ Author: MrBeam89_
               <object class="GtkSeparatorToolItem">
                 <property name="visible">True</property>
                 <property name="can-focus">False</property>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="homogeneous">True</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToolButton" id="settings_button">
+                <property name="visible">True</property>
+                <property name="can-focus">False</property>
+                <property name="tooltip-text" translatable="yes">Settings</property>
+                <property name="label" translatable="yes">Settings</property>
+                <property name="use-underline">True</property>
+                <property name="icon-name">document-properties</property>
+                <signal name="clicked" handler="on_settings_button_clicked" swapped="no"/>
               </object>
               <packing>
                 <property name="expand">False</property>

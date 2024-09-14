@@ -121,6 +121,7 @@ class LifelogApp:
             "on_new_file_button_clicked": self.on_new_file_button_clicked,
             "on_open_file_button_clicked": self.on_open_file_button_clicked,
             "on_search_button_clicked": self.on_search_button_clicked,
+            "on_today_button_clicked": self.on_today_button_clicked,
             "on_settings_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
             "on_about_button_clicked": self.on_about_button_clicked,
             
@@ -501,6 +502,7 @@ class LifelogApp:
             self.calendar.select_day(int(selected_entry_date[2]))
             self.calendar.select_month(int(selected_entry_date[1])-1, int(selected_entry_date[0]))
             self.on_calendar_day_selected(self.calendar)
+            self.on_calendar_month_changed(self.calendar)
 
             search_dialog.destroy()
 
@@ -582,6 +584,12 @@ class LifelogApp:
         else: result_message += f"{len(filtered_entries)} matching entries found."
         self.search_message_label.set_text(result_message)
 
+
+    def on_today_button_clicked(self, widget):
+        self.calendar.select_day(int(self.current_date[2]))
+        self.calendar.select_month(int(self.current_date[1])-1, int(self.current_date[0]))
+        self.on_calendar_day_selected(self.calendar)
+        self.on_calendar_month_changed(self.calendar)
 
     def on_about_button_clicked(self, widget):
         temp_builder = Gtk.Builder()
