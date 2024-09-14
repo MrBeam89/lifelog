@@ -116,7 +116,6 @@ class LifelogApp:
             "on_open_file_button_clicked": self.on_open_file_button_clicked,
             "on_search_button_clicked": self.on_search_button_clicked,
             "on_today_button_clicked": self.on_today_button_clicked,
-            "on_settings_button_clicked": lambda *args: self.change_statusbar_message(self.error_statusbar_context_id,"This feature isn't implemented yet!"),
             "on_about_button_clicked": self.on_about_button_clicked,
             
             # Other main widgets
@@ -622,7 +621,7 @@ class LifelogApp:
 
         # If entry doesn't exist, use default values
         if not entry:
-            entry = ["", "", "", "", "", "", Binary(b'').tobytes()]
+            entry = ["", "", "", "", "", ""]
 
         # Used to verify the presence of unsaved changes
         encrypted_entry_title = entry[2]
