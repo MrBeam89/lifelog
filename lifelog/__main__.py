@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#    Lifelog (main.py)
+#    Lifelog (__main__.py)
 #    Copyright (C) 2024 MrBeam89_
 #
 #    This file is part of Lifelog.
@@ -23,9 +23,9 @@ from sqlite3 import Binary
 from datetime import date, datetime
 from os import urandom
 
-import config
-import db_handler
-import crypto_utils
+from lifelog import config
+from lifelog import db_handler
+from lifelog import crypto_utils
 
 class LifelogApp:
     # Initialize the application
@@ -876,7 +876,13 @@ class LifelogApp:
         else:
             filechooser_win.destroy()
 
-# Start the application
-if __name__ == "__main__":
+
+# For the package
+def run():
     app = LifelogApp()
     app.main()
+
+
+# Start the application
+if __name__ == "__main__":
+    run()

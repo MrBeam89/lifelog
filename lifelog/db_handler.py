@@ -17,7 +17,7 @@
 
 import sqlite3
 
-import config
+from lifelog import config
 
 class DbHandler:
     # Initialize the database connection

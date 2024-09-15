@@ -18,5 +18,6 @@
 import os
 
 APP_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+RES_DIRECTORY = os.path.join(APP_DIRECTORY, "res")
 GLADE_FILENAME = "ui.glade"
-GLADE_FILEPATH = os.path.join(APP_DIRECTORY, GLADE_FILENAME)
+GLADE_FILEPATH = os.path.join(APP_DIRECTORY, RES_DIRECTORY, GLADE_FILENAME)
