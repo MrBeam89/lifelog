@@ -17,7 +17,7 @@
 </p>
 
 <!-- Screenshot and description-->
-<p align="center">A simple and secure diary app using <b>Python</b>, <b>SQLite</b> and <b>GTK</b>.</p>
+<p align="center">A simple and secure diary app using <b>Python</b>, <b>SQLite</b> and <b>GTK+ 3</b>.</p>
 
 <p align="center"><img src="docs/images/screenshot_main_lorem.png" alt="Lifelog main window screenshot (Greybird-dark and elementary Xfce dark)"></p>
 
@@ -43,6 +43,10 @@
     ```
     sudo apt install python3 python3-pip cmake libcairo2-dev gobject-introspection libgirepository-1.0-dev
     ```
+- For **Arch Linux**
+    ```
+    sudo pacman -S python python-pip cmake cairo gobject-introspection libgirepository
+    ```
 
 2. (*Optional*) Set up a virtual environment :
     ```
@@ -57,10 +61,11 @@
 
 4. **OR** install Lifelog from source:
     ```
+    pip3 install setuptools
     git clone https://github.com/MrBeam89/lifelog.git
     cd lifelog
     python3 setup.py bdist_wheel sdist
-    pip install .
+    pip3 install .
     ```
 
 <!-- Usage -->
@@ -84,7 +89,7 @@
 
 - **Simple and intuitive interface** : Designed with simplicity in mind.
 - **Title and tags** : Make searching for specific entries easier.
-- **Mood tracking** : Scale from 1 to 100.
+- **Mood tracking** : Scale from 0 to 100.
 - **Rich text** : Bold/italic/underline/strikethrough text, and paragraph alignment.
 - **Image support** : Supports the following formats (by default) : **JPEG**, **PNG**, **ICO** and **BMP**.
 - **Encryption** : Uses **AES-256** along with **scrypt** to protect your data.
