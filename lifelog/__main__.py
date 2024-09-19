@@ -57,6 +57,7 @@ class LifelogApp:
         self.saved_entry_mood = 50
 
         self.trigger_callback_func = True # Set to False to avoid recursion when necessary
+        self.bypass_unsaved_changes = False
 
         # Initialize the Gtk builder and load the glade file
         self.builder = Gtk.Builder()
@@ -477,10 +478,12 @@ class LifelogApp:
                     return
             
             # Set the calendar to the selected entry's date
+            self.bypass_unsaved_changes = True
             self.calendar.select_day(int(selected_entry_date[2]))
             self.calendar.select_month(int(selected_entry_date[1])-1, int(selected_entry_date[0]))
             self.on_calendar_day_selected(self.calendar)
             self.on_calendar_month_changed(self.calendar)
+            self.bypass_unsaved_changes = False
 
             search_dialog.destroy()
 
@@ -583,7 +586,10 @@ class LifelogApp:
 
         # Check for unsaved changes
         if self.check_for_unsaved_changes():
-            unsaved_changes_dialog_response = self.open_unsaved_changes_dialog()
+            if not self.bypass_unsaved_changes:
+                unsaved_changes_dialog_response = self.open_unsaved_changes_dialog()
+            else:
+                unsaved_changes_dialog_response = True
 
             if unsaved_changes_dialog_response == False:
                 # Change the date back without calling this function again (avoid infinite loop)
