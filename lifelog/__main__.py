@@ -50,7 +50,7 @@ class LifelogApp:
         self.unsaved_entry_title = ""
         self.unsaved_entry_tags = ""
         self.unsaved_entry_mood = 50
-
+ 
         # Default entry details
         self.saved_entry_title = ""
         self.saved_entry_tags = ""
@@ -389,6 +389,14 @@ class LifelogApp:
             # Temporarily store the database file path and close the filechooser dialog
             self.temp_db_filepath = filechooser_win.get_filename()
             filechooser_win.destroy()
+
+	        # Verify the validity of the selected file
+            db = db_handler.DbHandler(self.temp_db_filepath)
+            if db.has_failed:
+                # Display an error message and abort
+                self.change_statusbar_message(self.info_statusbar_context_id, "Invalid file!")
+                db.close()
+                return
 
             # Run the dialog to verify the password
             password_verify_dialog_response = password_verify_dialog.run()

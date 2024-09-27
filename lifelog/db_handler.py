@@ -25,27 +25,30 @@ class DbHandler:
         # Connect to the database and create the cursor
         self.conn = sqlite3.connect(db_filepath)
         self.cursor = self.conn.cursor()
+        self.has_failed = False
 
         # If the tables don't exist, create them
-        self.cursor.execute('''
-        CREATE TABLE IF NOT EXISTS entries (
-	        db_id INTEGER PRIMARY KEY AUTOINCREMENT,
-	        entry_date DATE UNIQUE,
-	        entry_title BLOB,
-    	    entry_tags BLOB,
-            entry_mood BLOB,
-            entry_content BLOB
-        );
-        ''')
-        
-        self.cursor.execute('''
-        CREATE TABLE IF NOT EXISTS settings (
-            db_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            key TEXT UNIQUE,
-            value BLOB
-        );
-        ''')
-
+        try:
+            self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS entries (
+	            db_id INTEGER PRIMARY KEY AUTOINCREMENT,
+	            entry_date DATE UNIQUE,
+	            entry_title BLOB,
+    	        entry_tags BLOB,
+                entry_mood BLOB,
+                entry_content BLOB
+            );
+            ''')
+            
+            self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS settings (
+                db_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT UNIQUE,
+                value BLOB
+            );
+            ''')
+        except sqlite3.DatabaseError:
+            self.has_failed = True
 
     # Commit and close the connection database
     def close(self):
@@ -115,3 +118,4 @@ class DbHandler:
         SELECT * FROM settings WHERE key = ?
         ''', (key,))
         return self.cursor.fetchall()[0][2]
+
